@@ -15,6 +15,42 @@ class APIError(RuntimeError):
     pass
 
 
+class ModelVersionError(ValueError):
+    """An acknowledgement from another model state cannot certify this session."""
+
+    def __init__(self, *, session_id, method, expected, received):
+        self.session_id, self.method = session_id, method
+        self.expected, self.received = expected, received
+        super().__init__(f"Predictive model version mismatch: session={session_id}, method={method}, "
+            f"expected={expected}, received={received}")
+
+
+class RecordedCalls:
+    """Record a single RPC attempt. Uncertain physical calls are never repeated."""
+
+    def __init__(self, recorder):
+        self.recorder = recorder
+
+    def call(self, endpoint, method, params):
+        self.recorder.event("api_request", method=method, params=params)
+        try:
+            result = endpoint.call(method, params)
+        except Exception as exc:
+            self.recorder.event("api_error", method=method, error_type=type(exc).__name__, error=str(exc))
+            raise
+        self.recorder.event("api_response", method=method, result=result)
+        return result
+
+    def checked_version(self, response, *, session_id, method, expected):
+        received = response.get("model_version")
+        if isinstance(received, bool) or not isinstance(received, int) or received != expected:
+            error = ModelVersionError(session_id=session_id, method=method, expected=expected, received=received)
+            self.recorder.event("model_version_mismatch", session_id=session_id, method=method,
+                expected=expected, received=received)
+            raise error
+        return response
+
+
 class HTTPClient:
     def __init__(self, url, timeout=600):
         if urlparse(url).scheme not in ("http", "https"):

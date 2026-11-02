@@ -42,11 +42,14 @@ Agent 接口、阶段 Schema 与移除入口见 [Agent 合同](agent_contracts.m
 | 组件 | 代码与调用 |
 | --- | --- |
 | 自动调度、预算、停止 | `workflows/loop.py`，目录中唯一工作流 |
+| 阶段持久化和事件 | `core/recording.py:SessionRecorder`，可注入 `Recorder` 实现 |
+| 记录 API 调用及校验版本 | `api/client.py:RecordedCalls`，不自动重发请求 |
 | 单次生成/执行诊断 | `tools/stages.py`，见 [debug](debug.md) |
 | 逐实例证据、交互决策理由、断点 | `core/exploration.py`，细节见 [实验调度合同](exploration.md) |
 | 物理分析、Probe、模型修订 | `agents/physic.py` → `physic.assess_task / design_probe / revise_physical_model` |
 | policy 生成/修订 | `agents/coding.py` → `agent.synthesize_policy` |
 | 公共推理及 Schema 校验 | `agents/base.py` |
+| 类型合同与 Schema 生成 | `core/agent_models.py`，Pydantic v2 |
 | 源码及证据合同 | `core/programs.py`、`core/evidence.py` |
 | 模型会话和任务路由 | `runtime/predictive.py` → `sim.configure / predict_probe / evaluate / update_model` |
 | 任务接口与选择 | `tasks/base.py`、`tasks/registry.py` |
@@ -59,6 +62,8 @@ Agent 接口、阶段 Schema 与移除入口见 [Agent 合同](agent_contracts.m
 `sim.update_model` 提交实际物理参数、权重和程序可读辨识记忆，不只是修改 `belief.json`。
 后续 Simulator 实例化使用新参数，程序通过同一个 `robot.describe()['identification']` 读取当前 World 的对象记忆。
 所有预测带 `session_id + model_version`，旧版本请求会被拒绝。
+版本不一致时记录会话、调用方法、预期/实际版本，并抛出 `ModelVersionError`；不自动重同步或继续认证。
+主循环通过 `handle_stop / handle_policy / handle_probe` 分派动作；各处理函数仍执行相同的证据和预算检查。
 参数 schema 来自任务适配器声明的名称、单位、坐标系与范围，不固定为 COM 或摩擦。
 提交前，宿主用原 Probe 源码、交互发生时的记忆和全部拟合观测检查新模型；解释不了就不提交。
 验证数据不进入模型拟合。验证失败要求新的拟合交互，模型更新后旧验证记录失效。
@@ -111,6 +116,9 @@ src/cap-x/.venv/bin/python -m physrsr serve-simulator \
 新任务不需要修改调度器、Physic prompt 或模型参数 schema。
 内置物理环境包括单杆 `rod_lift` 和三杆共存的 `three_rod_lift_return`；三杆任务在一个环境中记录各杆的抓持、保持与放回状态，整体评分由 `tasks/rod_scene_env.py` 实现。
 其他任务仍须提供实际 Simulator/目标适配器。
+
+预测服务按模型、程序和 seed 顺序执行并汇总；真实 World 操作和模型提交也保持串行。
+每个三杆假设在完整场景中评估，不将共存对象拆成不同 World。
 
 ## 停止、版本与产物
 

@@ -33,3 +33,16 @@ def evidence_samples(samples,limit=10):
         indices.add(max(range(len(samples)),key=lambda i:sum(
             x*x for x in samples[i]["observation"]["wrench"][channel])))
     return [samples[i] for i in sorted(indices)]
+
+
+def prediction_feedback(rows):
+    """Pure compact view of ensemble scores and measured failure trajectories."""
+    scores=[{k:v for k,v in row.items() if k!="feedback"} for row in rows]
+    trajectories=[]
+    for row in sorted(rows,key=lambda r:(r["success_rate"],r["margin"]))[:4]:
+        for outcome in row.get("feedback",[])[:2]:
+            trajectories.append(dict(model_id=row["model_id"],policy_sha256=row["policy_sha256"],
+                status=outcome.get("status"),reason=outcome.get("reason"),
+                observations=evidence_samples(outcome.get("observations",[]))))
+    return dict(model_policy_scores=scores,failure_trajectories=trajectories,
+        sampling="Selected API boundaries and load extrema; complete responses remain in simulation artifacts")

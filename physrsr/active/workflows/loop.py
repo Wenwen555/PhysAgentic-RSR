@@ -8,10 +8,10 @@ from __future__ import annotations
 from dataclasses import asdict, replace
 from pathlib import Path
 import uuid
-import json
 
-from ..core.artifacts import save_json
-from ..core.evidence import evidence_samples
+from ..core.recording import SessionRecorder
+from ..api.client import RecordedCalls
+from ..core.evidence import evidence_samples, prediction_feedback
 from ..core.belief import merge_identification
 from ..core.contracts import IDENTIFICATION_API_VERSION, Hypothesis, normalize, finite
 from ..core.identification import ROBOT_API, DEFAULT_BUDGET, public_goal
@@ -28,13 +28,16 @@ from ..runtime.instrumented import observation
 
 
 class ActiveLoop:
-    def __init__(self, task, config, models, *, agent, physic, simulator, target, output):
+    def __init__(self, task, config, models, *, agent, physic, simulator, target, output, recorder=None):
         scales = config.feature_scales if len(config.feature_scales)==len(FEATURE_NAMES) else FEATURE_SCALES
         self.task, self.cfg, self.models = task, replace(config,feature_scales=scales), normalize(models) if models else ()
         self.agent, self.physic, self.simulator, self.target = agent, physic, simulator, target
         self.output = Path(output)
-        self.output.mkdir(parents=True,exist_ok=False)
-        self.store = PolicyStore(self.output / "policies")
+        self.recorder = recorder if recorder is not None else SessionRecorder(self.output)
+        if self.recorder.root != self.output:
+            raise ValueError("Loop recorder root must match output")
+        self.rpc = RecordedCalls(self.recorder)
+        self.store = PolicyStore(self.output / "policies",recorder=self.recorder.scope("policies",exclusive=True))
         self.session_id = uuid.uuid4().hex
         self.model_version = self.probe_count = self.revision_count = self.model_revisions = 0
         self.spent = 0.
@@ -59,18 +62,13 @@ class ActiveLoop:
             models=self.model_json(),session_id=self.session_id))
 
     def write(self, name, value):
-        save_json(self.output / name,value)
+        self.recorder.write_json(name,value)
 
     def event(self, kind, **value):
-        import json
-        with (self.output / "events.jsonl").open("a") as stream:
-            stream.write(json.dumps(dict(event=kind,**value),ensure_ascii=False,allow_nan=False)+"\n")
+        self.recorder.event(kind,**value)
 
     def call(self, endpoint, method, params):
-        self.event("api_request",method=method,params=params)
-        result = endpoint.call(method,params)
-        self.event("api_response",method=method,result=result)
-        return result
+        return self.rpc.call(endpoint,method,params)
 
     def model_json(self):
         return [asdict(m) for m in self.models]
@@ -78,17 +76,16 @@ class ActiveLoop:
     def sim_params(self):
         return dict(session_id=self.session_id,model_version=self.model_version,seeds=list(self.cfg.model_seeds))
 
-    def checked_version(self, response):
-        if response.get("model_version") != self.model_version:
-            raise ValueError("Simulator returned a stale model version")
-        return response
+    def checked_version(self, response, method):
+        return self.rpc.checked_version(response,session_id=self.session_id,
+            method=method,expected=self.model_version)
 
     def evaluate(self, destination):
         candidates = list(self.store.policies.values())[-self.cfg.max_candidates:]
         if self.assessment and all(p.sha256 != self.assessment["selected"] for p in candidates):
             candidates = [self.store.policies[self.assessment["selected"]],*candidates[:self.cfg.max_candidates-1]]
         response = self.checked_version(self.call(self.simulator,"sim.evaluate",dict(**self.sim_params(),
-            policies=[p.wire() for p in candidates])))
+            policies=[p.wire() for p in candidates])),"sim.evaluate")
         self.rows = response["rows"]
         self.assessment = assess(self.models,candidates,self.rows,self.cfg)
         self.write(destination,dict(model_version=self.model_version,assessment=self.assessment,rows=self.rows))
@@ -97,15 +94,7 @@ class ActiveLoop:
     evidence_samples = staticmethod(evidence_samples)
 
     def prediction_feedback(self):
-        scores=[{k:v for k,v in row.items() if k!="feedback"} for row in self.rows]
-        trajectories=[]
-        for row in sorted(self.rows,key=lambda r:(r["success_rate"],r["margin"]))[:4]:
-            for outcome in row.get("feedback",[])[:2]:
-                trajectories.append(dict(model_id=row["model_id"],policy_sha256=row["policy_sha256"],
-                    status=outcome.get("status"),reason=outcome.get("reason"),
-                    observations=self.evidence_samples(outcome.get("observations",[]))))
-        return dict(model_policy_scores=scores,failure_trajectories=trajectories,
-            sampling="Selected API boundaries and load extrema; complete responses remain in simulation artifacts")
+        return prediction_feedback(self.rows)
 
     def context(self):
         """Scientist gets a semantic goal and measured/predictive evidence, no task ID."""
@@ -162,27 +151,26 @@ class ActiveLoop:
         self.revision_count += 1
         parent = self.store.policies[self.assessment["selected"]] if self.assessment else None
         stage = f"revised_cap_{self.revision_count}" if parent else "candidate_cap_1"
-        folder = self.output / stage
-        folder.mkdir()
+        self.recorder.scope(stage,exclusive=True)
         payload = dict(context,previous_task_candidate=parent.source if parent else None,
             prediction_feedback=self.prediction_feedback(),execution_protocol=dict(one_shared_policy=True,
                 one_world=True,object_estimates_from_api=True,target_task_executed=False))
         self.write(stage+"/context.json",payload)
         self.write(stage+"/schema.json",SYNTHESIS_SCHEMA)
-        (folder/"prompt.txt").write_text(synthesis_prompt(payload))
+        self.recorder.write_text(stage+"/prompt.txt",synthesis_prompt(payload))
         answer = self.call(self.agent,"agent.synthesize_policy",payload)
         self.write(stage+"/response.json",answer)
         checked = task_candidate(answer["code"])
         policy = Policy(checked.source,answer["rationale"],parent.sha256 if parent else None,IDENTIFICATION_API_VERSION)
         self.store.add(policy,self.revision_count)
-        (folder/"policy.py").write_bytes(policy.source.encode())
+        self.recorder.write_text(stage+"/policy.py",policy.source)
         self.write(stage+"/manifest.json",dict(sha256=policy.sha256,
             parent=parent.sha256 if parent else None,api_version=policy.api_version,model_version=self.model_version))
         self.evaluate(stage+"/simulation.json")
 
     def predict(self, probe, **prospective):
         response = self.checked_version(self.call(self.simulator,"sim.predict_probe",dict(
-            **self.sim_params(),probe=probe.wire(),**prospective)))
+            **self.sim_params(),probe=probe.wire(),**prospective)),"sim.predict_probe")
         if response.get("feature_schema") != self.feature_schema or response.get("policy_sha256") != probe.policy.sha256:
             raise ValueError("Measured probe prediction contract mismatch")
         models = normalize([Hypothesis(**m) for m in prospective["models"]]) if "models" in prospective else self.models
@@ -223,7 +211,7 @@ class ActiveLoop:
                 scene=dict(object_ids=self.scene_object_ids)
                 task=dict(task,scene=self.initial_visual)
             self.checked_version(self.call(self.simulator,"sim.configure",dict(session_id=self.session_id,
-                task=task,models=[asdict(m) for m in proposed],**scene)))
+                task=task,models=[asdict(m) for m in proposed],**scene)),"sim.configure")
             self.sim_configured=True
         # Validation measurements are deliberately absent from this fitting path.
         for datum in self.fit_data:
@@ -237,8 +225,8 @@ class ActiveLoop:
         response = self.call(self.simulator,"sim.update_model",dict(session_id=self.session_id,
             model_version=self.model_version,models=[asdict(m) for m in proposed],belief=self.belief,
             fit_evidence_ids=fit_ids))
-        if response["model_version"] != self.model_version+1:
-            raise ValueError("Predictive model commit did not advance its version")
+        self.rpc.checked_version(response,session_id=self.session_id,
+            method="sim.update_model",expected=self.model_version+1)
         acknowledged = normalize([Hypothesis(**m) for m in response["models"]])
         if [asdict(m) for m in acknowledged] != [asdict(m) for m in proposed]:
             raise ValueError("Simulator applied different model parameters")
@@ -255,8 +243,7 @@ class ActiveLoop:
         self.probe_attempt_count += 1
         number = self.probe_attempt_count
         name = f"active_probe_{number}"
-        folder = self.output/name
-        folder.mkdir()
+        self.recorder.scope(name,exclusive=True)
         context = dict(context,purpose=purpose,design_review=decision,
             authoring_mode="repair_probe" if repair else "new_experiment",
             used_action_sources=[d["probe"].policy.source for d in self.fit_data],
@@ -266,7 +253,7 @@ class ActiveLoop:
             context["previous_probe_source"]=self.current_probe.policy.source
         self.write(name+"/context.json",context)
         self.write(name+"/schema.json",DESIGN_SCHEMA)
-        (folder/"prompt.txt").write_text(probe_prompt(context))
+        self.recorder.write_text(name+"/prompt.txt",probe_prompt(context))
         answer = self.call(self.physic,"physic.design_probe",context)
         policy = validate_probe_design(answer,context)
         cost = max(finite(decision["estimated_probe_cost_s"]),.001)
@@ -274,7 +261,7 @@ class ActiveLoop:
             ";".join(answer["experimental_design"]["manipulated_variables"]),purpose)
         self.write(name+"/analysis.json",{k:v for k,v in answer.items() if k!="code"})
         self.write(name+"/response.json",answer)
-        (folder/"probe.py").write_bytes(policy.source.encode())
+        self.recorder.write_text(name+"/probe.py",policy.source)
         if repair:self.probe_repair_count+=1
         else:
             self.probe_design_count+=1
@@ -305,8 +292,8 @@ class ActiveLoop:
             purpose=probe.purpose
         else:probe=self.author_probe(purpose,context,decision)
         self.current_probe=probe
-        policy=probe.policy;name=probe.id;folder=self.output/name;cost=probe.cost
-        if source_policy((folder/"probe.py").read_text()).sha256!=policy.sha256:
+        policy=probe.policy;name=probe.id;cost=probe.cost
+        if source_policy(self.recorder.read_text(name+"/probe.py")).sha256!=policy.sha256:
             raise ValueError("Probe source changed after authoring")
         attempt=self.execution_attempts.get(name,0)+1
         destination="world_execution" if attempt==1 else f"world_execution/attempt_{attempt:03d}"
@@ -350,7 +337,7 @@ class ActiveLoop:
             raise ValueError("Repeated/missing measured evidence ID")
         self.evidence_ids.add(evidence)
         self.probe_data.append(dict(probe=probe,result=result,belief_before=self.belief))
-        manifest=json.loads((folder/"manifest.json").read_text())
+        manifest=self.recorder.read_json(name+"/manifest.json")
         self.write(name+"/manifest.json",dict(manifest,status="executed_in_target",execution_status=result["status"],
             sha256=policy.sha256,api_version=policy.api_version,purpose=purpose,
             model_version=self.model_version,evidence_id=evidence,physical_executions=attempt))
@@ -427,7 +414,8 @@ class ActiveLoop:
         if status == "task_sufficient":
             policy = self.store.policies[self.assessment["selected"]]
             self.store.freeze(policy,self.output/"final",dict(model_version=self.model_version,
-                assessment=self.assessment,validation=[v for v in self.validation_data if v["model_version"]==self.model_version]))
+                assessment=self.assessment,validation=[v for v in self.validation_data if v["model_version"]==self.model_version]),
+                recorder=self.recorder.scope("final",exclusive=True))
             result["final_policy"] = dict(path=str(self.output/"final/policy.py"),sha256=policy.sha256)
         self.write("result.json",result)
         self.write("progress.json",self.history)
@@ -459,50 +447,61 @@ class ActiveLoop:
         self.write("task_context/world.json",dict(world_count=1,object_ids=self.scene_object_ids,
             feature_schema=self.feature_schema,feature_scales=list(self.cfg.feature_scales)))
         self.write("task_context/initial_visual.json",self.initial_visual)
-        candidates=[]
         for index in range(self.cfg.max_rounds):
             context = self.context()
             decision = self.call(self.physic,"physic.assess_task",context)
             validate_plan(decision,context)
             self.write(f"rounds/{index:03d}/context.json",context)
             self.write(f"rounds/{index:03d}/decision.json",decision)
-            valid = [v for v in self.validation_data if v["model_version"]==self.model_version and v["passed"]]
             action = decision["action"]
-            robust=bool(self.assessment and self.assessment["robust"])
-            net = finite(decision["expected_decision_benefit"])-self.cfg.probe_cost_weight*finite(decision["estimated_probe_cost_s"])
-            if action=="stop" and robust and len(valid)>=self.cfg.min_validation_probes and not self.needs_identification and net<=self.cfg.min_net_value:
-                return self.finish("task_sufficient","Robust candidate, fresh independent predictions and low remaining task decision value")
-            if action=="stop":
-                return self.finish("exploration_stopped","Stop cannot certify a candidate without current independent evidence")
-            if action=="validate" and not robust:
-                return self.finish("invalid_decision","Independent predictive validation needs a robust candidate")
             entry = dict(round=index,action=action,model_version=self.model_version,probe_cost=self.spent,
                 assessment=self.assessment)
-            self.history.append(entry)
-            if action=="revise_policy":
-                if not decision["instance_assessments"][0]["sufficient"]:
-                    return self.finish("insufficient_decision_evidence","Policy revision lacks sufficient instance evidence")
-                if not self.sim_configured:
-                    if not self.fit_data:return self.finish("needs_physical_evidence","No grounded model evidence is available")
-                    if not self.update_model():return self.finish("model_inadequate","Fit evidence does not support model commit")
-                self.revise_policy(context)
-                candidates = [self.store.policies[s["policy_sha256"]] for s in self.assessment["scores"]]
-                continue
-            if action not in ("probe","validate","repair_probe","execute_probe","resume_probe"):
-                raise ValueError("Unknown physical loop action")
-            if action!="repair_probe" and net<=self.cfg.min_net_value:
-                return self.finish("low_decision_value","No positive predicted decision benefit remains after interaction cost")
-            if action!="repair_probe" and self.probe_count>=self.cfg.max_probes:
-                return self.finish("probe_budget_exhausted","Physical interaction budget reached before sufficiency")
-            outcome = self.probe("validation" if action=="validate" else "fit",context,decision,candidates,mode=action)
-            entry["outcome"]=outcome
-            if outcome in ("model_inadequate","cost_budget_exhausted","probe_execution_error","cost_unknown"):
-                return self.finish(outcome,"See the frozen probe, predictions and measured evidence")
-            if outcome=="updated":
-                # The same candidate is first re-predicted under the updated physics.
-                if self.store.policies:
-                    candidates = self.evaluate(f"models/version_{self.model_version:03d}_prediction.json")
+            if action!="stop":self.history.append(entry)
+            handlers={"stop":self.handle_stop,"revise_policy":self.handle_policy,
+                **{key:self.handle_probe for key in ("probe","validate","repair_probe","execute_probe","resume_probe")}}
+            if action not in handlers:raise ValueError("Unknown physical loop action")
+            candidates=([self.store.policies[row["policy_sha256"]] for row in self.assessment["scores"]]
+                if self.assessment else [])
+            result=handlers[action](context,decision,candidates,entry)
+            if result is not None:return result
         return self.finish("round_budget_exhausted","Automatic revision budget reached before sufficiency")
+
+    def handle_stop(self, context, decision, candidates, entry):
+        valid = [v for v in self.validation_data if v["model_version"]==self.model_version and v["passed"]]
+        robust=bool(self.assessment and self.assessment["robust"])
+        net=self.decision_value(decision)
+        if robust and len(valid)>=self.cfg.min_validation_probes and not self.needs_identification and net<=self.cfg.min_net_value:
+            return self.finish("task_sufficient","Robust candidate, fresh independent predictions and low remaining task decision value")
+        return self.finish("exploration_stopped","Stop cannot certify a candidate without current independent evidence")
+
+    def handle_policy(self, context, decision, candidates, entry):
+        if not decision["instance_assessments"][0]["sufficient"]:
+            return self.finish("insufficient_decision_evidence","Policy revision lacks sufficient instance evidence")
+        if not self.sim_configured:
+            if not self.fit_data:return self.finish("needs_physical_evidence","No grounded model evidence is available")
+            if not self.update_model():return self.finish("model_inadequate","Fit evidence does not support model commit")
+        self.revise_policy(context)
+        return None
+
+    def decision_value(self, decision):
+        return finite(decision["expected_decision_benefit"])-self.cfg.probe_cost_weight*finite(decision["estimated_probe_cost_s"])
+
+    def handle_probe(self, context, decision, candidates, entry):
+        action=decision["action"]
+        if action=="validate" and not (self.assessment and self.assessment["robust"]):
+            return self.finish("invalid_decision","Independent predictive validation needs a robust candidate")
+        if action!="repair_probe" and self.decision_value(decision)<=self.cfg.min_net_value:
+            return self.finish("low_decision_value","No positive predicted decision benefit remains after interaction cost")
+        if action!="repair_probe" and self.probe_count>=self.cfg.max_probes:
+            return self.finish("probe_budget_exhausted","Physical interaction budget reached before sufficiency")
+        outcome=self.probe("validation" if action=="validate" else "fit",context,decision,candidates,mode=action)
+        entry["outcome"]=outcome
+        if outcome in ("model_inadequate","cost_budget_exhausted","probe_execution_error","cost_unknown"):
+            return self.finish(outcome,"See the frozen probe, predictions and measured evidence")
+        if outcome=="updated" and self.store.policies:
+            # First re-predict the same candidate under the updated physics.
+            self.evaluate(f"models/version_{self.model_version:03d}_prediction.json")
+        return None
 
     def check_scene(self, observed):
         check_objects(observed,self.scene_object_ids)

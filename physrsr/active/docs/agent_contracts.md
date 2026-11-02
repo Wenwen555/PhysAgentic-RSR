@@ -8,6 +8,8 @@
 | `agents/physic.py` | 任务物理不确定性评估、Probe 设计/源码修复、物理模型假设修订 |
 | `agents/coding.py` | 根据辨识和预测反馈生成/修订可执行 CaP |
 | `agents/base.py` | JSON Schema 校验、共同推理后端、最多三次结构/源码审查 |
+| `core/agent_models.py` | Pydantic 类型合同、Schema 生成、带上下文的跨字段校验 |
+| `core/recording.py` | 可注入的 SessionRecorder，统一保存阶段快照和事件 |
 | `core/programs.py` | v2 源码合同、Probe 断点接口要求、排除无动作 CaP |
 | `core/evidence.py` | 已有 Evidence ID 的提取、引用检查和观测摘要 |
 | `core/exploration.py` | 决策范围、证据需求和交互理由的确定性检查 |
@@ -44,6 +46,10 @@ Agent 模块不导入 Workflow，Physic/Coding 也不相互导入各自的领域
 ## 校验与证据
 
 所有推理响应先按实际输出 Schema 做本地校验，包括必填字段、类型、边界和额外字段；再做语义校验。
+Schema 由 `ProbeDesign`、`TaskDecision` 和 `PolicySynthesis.model_json_schema()` 生成；
+物理模型响应通过 `physical_revision_model(parameter_contracts)` 动态构造类型，保留适配器的参数边界。
+模型禁用额外字段和隐式类型转换，`model_validate(..., context=...)` 同时检查因素引用、Evidence ID 和决策语义。
+既有字典格式 RPC 和导出的 `DESIGN_SCHEMA / DECISION_SCHEMA / SYNTHESIS_SCHEMA` 名称保留。
 Probe 的观测事实只能引用上下文已提供的 Evidence ID，所选因素必须在物理分析中声明。
 主 Loop 和单次诊断工具同样校验冻结的 Probe 响应；`schema.json`、prompt、分析与源码在对应阶段归档。
 
@@ -52,8 +58,16 @@ Probe 的观测事实只能引用上下文已提供的 Evidence ID，所选因�
 模型修订只接收拟合上下文，引用必须恰好覆盖给定拟合交互；独立验证报告不会被传入其 prompt。
 新模型仍须通过主 Loop 的拟合轨迹回放后才能提交。
 
-失败响应只触发最多三次结构/源码修复。修复请求明确标明未执行、没有新测量；耗尽次数时报错，不替换模板程序。
+首次生成之后最多修复两次，共三次尝试，所有阶段共用一个重试入口。
+生成结果的 JSON 解析失败、结构、证据和源码校验失败都会反馈具体原因。
+`validation_errors.json` 保存逐次失败，耗尽时报错并保留最后原因；成功响应保存为 `response.json`。
+传输、后端运行和配置错误直接上报，不作为 LLM 格式错误重试。
+修复请求明确标明未执行、没有新测量，不替换模板程序，也不重发物理动作。
 结构校验不证明物理方程正确；实际可辨识性、动作风险、预测能力和任务成功仍需独立执行与验证。
+
+Agent 通过公共推理层将 prompt、schema、有效上下文和校验诊断交给 `SessionRecorder`。
+`PhysicAgent` 不直接写调试快照；构造服务或主 Loop 时可注入实现 `Recorder` 协议的存储以隔离单测。
+底层 Codex CLI 的进程及生成日志仍由推理传输层管理。
 
 ## 移除与保留的入口
 

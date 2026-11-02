@@ -67,8 +67,10 @@ class PredictiveSimulator:
             session = self.sessions[params["session_id"]]
         except KeyError:
             raise APIError("Configure a predictive model session first") from None
-        if params["model_version"] != session["version"]:
-            raise APIError("Stale predictive model version")
+        version=params["model_version"]
+        if isinstance(version,bool) or not isinstance(version,int) or version != session["version"]:
+            raise APIError(f"Stale predictive model version: session={params['session_id']}, method={method}, "
+                f"expected={session['version']}, received={version}")
         if method == "sim.update_model":
             models = self.models(session["task"], params["models"])
             evidence = params["fit_evidence_ids"]

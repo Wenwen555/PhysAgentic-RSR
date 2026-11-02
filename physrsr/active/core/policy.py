@@ -5,10 +5,10 @@ import ast
 from dataclasses import dataclass
 import difflib
 import hashlib
-import json
 from pathlib import Path
 
 from .contracts import API_VERSION, IDENTIFICATION_API_VERSION
+from .recording import SessionRecorder
 
 
 @dataclass(frozen=True)
@@ -62,34 +62,32 @@ class Policy:
 
 
 class PolicyStore:
-    def __init__(self, root):
+    def __init__(self, root, *, recorder=None):
         self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=False)
+        self.recorder = recorder if recorder is not None else SessionRecorder(self.root)
         self.policies = {}
 
     def add(self, policy, round_index):
         if policy.sha256 in self.policies:
             return
-        folder = self.root / policy.sha256
-        folder.mkdir()
-        (folder / "policy.py").write_text(policy.source)
-        (folder / "manifest.json").write_text(json.dumps(dict(
+        recorder = self.recorder.scope(policy.sha256, exclusive=True)
+        recorder.write_text("policy.py", policy.source)
+        recorder.write_json("manifest.json", dict(
             sha256=policy.sha256, parent=policy.parent, round=round_index,
-            rationale=policy.rationale, api_version=policy.api_version), indent=2))
+            rationale=policy.rationale, api_version=policy.api_version))
         if policy.parent in self.policies:
             old = self.policies[policy.parent].source
-            (folder / "revision.diff").write_text("".join(difflib.unified_diff(
+            recorder.write_text("revision.diff", "".join(difflib.unified_diff(
                 old.splitlines(True), policy.source.splitlines(True), fromfile=policy.parent, tofile=policy.sha256)))
         self.policies[policy.sha256] = policy
 
-    def freeze(self, policy, destination, evidence):
-        destination = Path(destination)
-        destination.mkdir(exist_ok=False)
+    def freeze(self, policy, destination, evidence, *, recorder=None):
+        recorder = recorder if recorder is not None else SessionRecorder(destination)
         # Copy exactly the bytes evaluated by the simulator; no sim/real branch.
-        (destination / "policy.py").write_bytes(policy.source.encode())
-        (destination / "manifest.json").write_text(json.dumps(dict(
+        recorder.write_text("policy.py", policy.source)
+        recorder.write_json("manifest.json", dict(
             sha256=policy.sha256, api_version=policy.api_version, entrypoint="run(robot)",
-            status="task_sufficient", evidence=evidence), indent=2))
+            status="task_sufficient", evidence=evidence))
 
 
 def execute(policy, dispatch):
