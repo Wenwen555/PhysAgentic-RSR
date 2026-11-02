@@ -187,11 +187,12 @@ def test_simulator_program_error_is_feedback_without_physics_rollout(monkeypatch
 
 
 def test_structured_coding_keeps_revision_context_without_inference(tmp_path):
-    from physrsr.active.agents.coding import CodingService, PROPOSAL_SCHEMA
+    from physrsr.active.agents.coding import CodingService, SYNTHESIS_SCHEMA
     class Agent:
         def generate(self, messages, destination, *, schema):
-            assert schema == PROPOSAL_SCHEMA
+            assert schema == SYNTHESIS_SCHEMA
             assert "previous_policy" in messages[0]["content"]
-            return dict(policies=[], probes=[], uncertainties=[])
+            return dict(code="def run(robot):\n    robot.close_gripper()\n",rationale="Fixture revision",
+                changes=["fixture"],embodiment_checks=["fixture"],remaining_uncertainties=["fixture"])
     service = CodingService(tmp_path / "coding", agent=Agent())
-    assert service.call("agent.propose", dict(previous_policy="same source"))["probes"] == []
+    assert service.call("agent.synthesize_policy", dict(previous_policy="same source"))["changes"] == ["fixture"]

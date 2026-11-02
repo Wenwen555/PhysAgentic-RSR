@@ -29,6 +29,6 @@ def test_output_rejects_parent_absolute_and_symlink_escapes(tmp_path, monkeypatc
 def test_cli_rejects_old_output_before_work_starts(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "OUTPUT_ROOT", tmp_path / "output")
     with pytest.raises(SystemExit) as exc:
-        main(["author-initial", "--config", "missing.json", "--out", str(tmp_path / "old")])
+        main(["run", "--config", "missing.json", "--out", str(tmp_path / "old")])
     assert exc.value.code == 2
     assert not (tmp_path / "output").exists()

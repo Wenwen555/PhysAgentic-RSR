@@ -2,20 +2,17 @@
 
 No LLM, physical simulator, experiment or hardware is invoked here.
 """
-from contextlib import contextmanager
-from copy import deepcopy
-from pathlib import Path
 import json
 
 import pytest
 
-from physrsr.active.core.artifacts import save_json
 from physrsr.active.core.exploration import CONTRACT,validate_plan,resumable
-from physrsr.active.agents.identification import source_policy,resumable_probe_source,generate_design
+from physrsr.active.core.programs import source_policy,resumable_probe_source
+from physrsr.active.agents.physic import PhysicAgent
 from physrsr.active.runtime.instrumented import InstrumentedTarget,Dispatcher
 from physrsr.active.runtime.robot import RobotContractError
-from physrsr.active.workflows import identification as workflow,scoped_loop as loop
 from test_unified_loop import FixtureRobot
+from agent_fixtures import design_answer
 
 
 PROBE="""def run(robot):
@@ -71,49 +68,6 @@ class Robot(FixtureRobot):
         if method=='goto_pose':self.moves.append(params['position'][0])
 
 
-class Endpoint:
-    def __init__(self,robot):self.robot=robot;self.target=InstrumentedTarget(robot);self.calls=[]
-    def call(self,method,params):
-        self.calls.append((method,deepcopy(params)))
-        if method!='world.evaluate_policy':return self.target.call(method,params)
-        result=self.target.call('target.execute_policy',params)
-        passed=result['status']=='completed' and abs(result['program_return']['value']-self.robot.response)<.001
-        return dict(policy_sha256=result['policy_sha256'],observations=result['observations'],
-            program_return=result['program_return'],error_kind=None,
-            record=dict(status='success' if passed else 'fail',reason='' if passed else 'fixture_error'))
-
-
-def fixture_run(tmp_path,monkeypatch,goal='Move the observed object'):
-    cases=[dict(episode_id=e,endpoint='fixture://'+e,inspect_compilation=False) for e in ['a','b']]
-    save_json(tmp_path/'evaluator_only_cases.json',cases)
-    robots={'a':Robot(.04),'b':Robot(-.07)};endpoints={k:Endpoint(v) for k,v in robots.items()}
-    @contextmanager
-    def world(case,folder,port):yield endpoints[case['episode_id']]
-    monkeypatch.setattr(workflow,'world_endpoint',world)
-    stage=tmp_path/'active_probe_1';stage.mkdir()
-    policy=source_policy(PROBE)
-    (stage/'probe.py').write_text(PROBE)
-    save_json(stage/'manifest.json',dict(probe_sha256=policy.sha256,status='authored_not_executed',
-        experiment_id='first-question',change_kind='new_design'))
-    context=dict(goal=dict(instruction=goal),capabilities=robots['a'].describe(),robot_api='public fixture API',
-        initial_evidence=[],initial_visual_observations={e:{} for e in robots},experiment_budget={'max_rpc_calls':20})
-    save_json(stage/'context.json',context);save_json(stage/'analysis.json',dict(selected_factors=['response']))
-    coding=[];repairs=[]
-    class Agents:
-        def call(self,method,params):
-            if method=='physic.design_identification':
-                repairs.append(params)
-                return dict(code=PROBE+'\n# repaired source\n',selected_factors=['response'],
-                    experimental_design=dict(manipulated_variables=['contact setting'],minimum_distinct_settings=2))
-            assert method=='agent.synthesize_identified_policy'
-            coding.append(params)
-            return dict(code=POLICY+f'\n# candidate {len(coding)}\n',rationale='fixture synthesis')
-    @contextmanager
-    def agents(*args,**kwargs):yield Agents()
-    monkeypatch.setattr(workflow,'service',agents)
-    return endpoints,coding,repairs
-
-
 def plan(context,action,targets=(),ready=()):
     rows=[];interactions=[]
     for instance in context['instances']:
@@ -131,76 +85,9 @@ def plan(context,action,targets=(),ready=()):
         expected_decision_benefit=.5 if targets else 0.,estimated_probe_cost_s=4.*len(targets))
 
 
-@pytest.mark.parametrize('goal',['Move the observed object','Reorient the observed object'])
-def test_scoped_repair_resume_and_partial_candidate_do_not_repeat_sufficient_instance(tmp_path,monkeypatch,goal):
-    endpoints,coding,repairs=fixture_run(tmp_path,monkeypatch,goal)
-    actions=iter([('execute_probe',['a'],[]),('resume_probe',['a'],[]),
-        ('repair_probe',[],['a']),('revise_policy',[],['a']),
-        ('execute_probe',['b'],['a']),('resume_probe',['b'],['a']),('revise_policy',[],['a','b'])])
-    contexts=[]
-    def decide(root,context,index,port):
-        contexts.append(deepcopy(context));action,targets,ready=next(actions)
-        return plan(context,action,targets,ready)
-    monkeypatch.setattr(loop,'decide',decide)
-    result=loop.continue_probe_first(tmp_path,max_iterations=7)
-    assert result['status']=='accepted' and result['policy_round']==2
-    assert len(repairs)==1 and repairs[0]['authoring_mode']=='repair_probe'
-    assert len(coding)==2 and coding[1]['previous_task_candidate'].startswith(POLICY)
-    assert [x['episode_id'] for x in coding[1]['actual_task_feedback']]==['a']
-    assert len(json.loads((tmp_path/'identified_cap_1/summary.json').read_text()))==1
-    assert not (tmp_path/'identified_cap_1/evaluation/b').exists()
-    for eid,endpoint in endpoints.items():
-        executed=[p['policy']['source'] for m,p in endpoint.calls if m=='target.execute_probe']
-        assert len(executed)==2 and executed[0]==executed[1]
-        assert endpoint.robot.moves==[0.,.01], 'A resumed source must not restart the first setting'
-    assert [m for m,p in endpoints['a'].calls].count('world.evaluate_policy')==2
-    assert [m for m,p in endpoints['b'].calls].count('world.evaluate_policy')==1
-    before=contexts[2]['measured_interactions'];after=contexts[3]['measured_interactions']
-    assert before==after,'Repair must not spend physical interaction or create evidence'
-    manifest=json.loads((tmp_path/'active_probe_2/manifest.json').read_text())
-    assert manifest['experiment_id']=='first-question' and manifest['change_kind']=='repair'
-    history=json.loads((tmp_path/'progress.json').read_text())
-    assert history[2]['physical_interactions']==0
-    assert contexts[2]['instances'][0]['retained_identification']['probe_progress']
-    assert 'rod_lift' not in json.dumps(contexts)
-
-
-def test_repair_never_implicitly_executes_new_source(tmp_path,monkeypatch):
-    endpoints,_,_=fixture_run(tmp_path,monkeypatch)
-    monkeypatch.setattr(loop,'decide',lambda root,ctx,*args:plan(ctx,'repair_probe'))
-    result=loop.continue_probe_first(tmp_path,max_iterations=1)
-    assert result['status']=='iteration_budget_exhausted'
-    assert all(not e.calls for e in endpoints.values())
-    assert not (tmp_path/'active_probe_2/world_execution').exists()
-
-
-def test_controller_restart_retains_same_source_budget_pause(tmp_path,monkeypatch):
-    endpoints,_,_=fixture_run(tmp_path,monkeypatch)
-    calls=iter(['execute_probe','resume_probe'])
-    monkeypatch.setattr(loop,'decide',lambda root,ctx,*args:plan(ctx,next(calls),['a']))
-    first=loop.continue_probe_first(tmp_path,max_iterations=1)
-    second=loop.continue_probe_first(tmp_path,max_iterations=1)
-    assert first['status']==second['status']=='iteration_budget_exhausted'
-    executed=[p['policy']['source'] for m,p in endpoints['a'].calls if m=='target.execute_probe']
-    assert executed==[PROBE,PROBE] and endpoints['a'].robot.moves==[0.,.01]
-    assert not endpoints['b'].calls
-    assert second['authoring']['scientific_designs']==1 and second['measured_interactions']['executions']==2
-
-
-def test_unacknowledged_attempt_cannot_be_repeated_as_a_fresh_probe(tmp_path,monkeypatch):
-    endpoints,_,_=fixture_run(tmp_path,monkeypatch)
-    save_json(tmp_path/'active_probe_1/world_execution/execution_index.json',[
-        dict(attempt=1,status='running',instance_ids=['a'],results=[])])
-    monkeypatch.setattr(loop,'decide',lambda *args:pytest.fail('Unknown interaction must be reconciled first'))
-    result=loop.continue_probe_first(tmp_path,max_iterations=1)
-    assert result['status']=='cost_unknown'
-    assert all(not e.calls for e in endpoints.values())
-
-
 @pytest.mark.parametrize('defect',['same_decision','cross_instance','already_sufficient','zero_cost'])
 def test_physical_interaction_requires_scoped_decision_information(tmp_path,monkeypatch,defect):
-    fixture_run(tmp_path,monkeypatch)
-    context=loop.review_context(tmp_path,1)
+    context=dict(instances=[dict(episode_id=e,available_evidence_ids=[f'{e}:initial_visual']) for e in ['a','b']])
     answer=plan(context,'execute_probe',['b'])
     if defect=='same_decision':answer['interactions'][0]['outcomes'][1]['operation_decision']='Choose configuration one'
     if defect=='cross_instance':answer['interactions'][0]['evidence_ids']=['a:initial_visual']
@@ -209,20 +96,6 @@ def test_physical_interaction_requires_scoped_decision_information(tmp_path,monk
         answer['instance_assessments'][1]['requirements'][0]['met']=True
     if defect=='zero_cost':answer['estimated_probe_cost_s']=0.
     with pytest.raises(ValueError):validate_plan(answer,context)
-
-
-def test_resume_rejects_changed_source_and_failed_recovery(tmp_path,monkeypatch):
-    fixture_run(tmp_path,monkeypatch)
-    workflow.execute_identification(tmp_path,instance_ids=['a'])
-    memory=workflow.instance_memory(tmp_path,'a',2)
-    original=source_policy(PROBE)
-    assert resumable(memory,original.sha256)
-    assert not resumable(dict(memory,instance_id='another'),original.sha256)
-    assert not resumable(memory,source_policy(PROBE+'\n# different\n').sha256)
-    result=tmp_path/'active_probe_1/world_execution/a/result.json';raw=json.loads(result.read_text())
-    raw['experiment_checkpoint']['resumable']=False;save_json(result,raw)
-    with pytest.raises(ValueError,match='checkpoint'):
-        workflow.execute_identification(tmp_path,instance_ids=['a'],resume=True)
 
 
 def test_checkpoint_cannot_be_accepted_while_gripping_or_after_more_motion():
@@ -242,23 +115,13 @@ def test_missing_continuation_is_a_code_only_authoring_failure(tmp_path):
         calls=0
         def generate(self,*args,**kwargs):
             self.calls+=1
-            return dict(code=POLICY,experimental_design=dict(minimum_distinct_settings=2))
+            return design_answer(dict(goal={'instruction':'Manipulate'}),POLICY)
     agent=Agent()
-    with pytest.raises(ValueError,match='authoring failed'):
-        generate_design(agent,dict(goal={'instruction':'Manipulate'}),tmp_path)
+    from physrsr.active.api.client import APIError
+    with pytest.raises(APIError,match='authoring failed'):
+        PhysicAgent(tmp_path/'physic',agent=agent).design_probe(dict(goal={'instruction':'Manipulate'}))
     assert agent.calls==3
     resumable_probe_source(PROBE)
-
-
-@pytest.mark.parametrize('budget,expected',[
-    (loop.ExplorationBudget(max_probe_executions=1),'probe_budget_exhausted'),
-    (loop.ExplorationBudget(probe_cost_weight=1.),'low_decision_value')])
-def test_unaffordable_interaction_cannot_touch_robot(tmp_path,monkeypatch,budget,expected):
-    endpoints,_,_=fixture_run(tmp_path,monkeypatch)
-    monkeypatch.setattr(loop,'decide',lambda root,ctx,*args:plan(ctx,'execute_probe',['a','b']))
-    result=loop.continue_probe_first(tmp_path,max_iterations=1,budget=budget)
-    assert result['status']==expected
-    assert all(not e.calls for e in endpoints.values())
 
 
 def test_predictive_loop_repairs_program_error_without_automatic_reexecution(tmp_path):
@@ -342,7 +205,7 @@ def test_predictive_loop_can_continue_identification_before_a_task_candidate(tmp
     native,events=fixture.build(tmp_path,answers=Answers(),cfg=LoopConfig(max_rounds=3))
     result=native.run()
     assert result['probe_count']==3 and len(native.fit_data)==3 and native.model_version==2
-    assert not any(m=='agent.synthesize_identified_policy' for m,p in events)
+    assert not any(m=='agent.synthesize_policy' for m,p in events)
     resumed=[p for m,p in events if m=='sim.predict_probe' and p['probe']['policy']['source']==PROBE]
     assert any(resumable(p['belief'],source_policy(PROBE).sha256) for p in resumed)
 
@@ -379,34 +242,6 @@ def test_paused_independent_validation_needs_all_segments_and_never_fits_them(tm
     assert len(native.validation_data)==1 and len(native.validation_data[0]['segment_evidence_ids'])==2
     assert native.validation_data[0]['passed'] is (not mismatch_first)
     assert len(native.fit_data)==1 and not native.belief.get('probe_progress')
-    model_calls=[p for m,p in events if m=='physic.revise_predictive_model']
+    model_calls=[p for m,p in events if m=='physic.revise_physical_model']
     assert len(model_calls)==1 and len(model_calls[0]['fit_evidence'])==1
     assert result['status']==('exploration_stopped' if mismatch_first else 'task_sufficient')
-
-
-def test_cli_exposes_scoped_same_source_resume_and_code_only_repair(tmp_path,monkeypatch):
-    import physrsr.active.__main__ as cli
-    monkeypatch.setattr(cli,'output_path',Path)
-    calls=[]
-    monkeypatch.setattr(workflow,'execute_identification',lambda root,**kwargs:calls.append(('execute',kwargs)) or [])
-    assert cli.main(['identification','probe','--experiment',str(tmp_path),'--instances','b','--resume'])==0
-    assert calls==[('execute',dict(round_index=1,instance_ids=['b'],resume=True))]
-    review=tmp_path/'review.json';save_json(review,dict(finding='program defect'))
-    monkeypatch.setattr(workflow,'redesign_identification',lambda root,review,**kwargs:calls.append(('repair',review,kwargs)) or {})
-    cli.main(['identification','redesign','--experiment',str(tmp_path),'--round','2','--review',str(review),'--repair'])
-    assert calls[-1][0]=='repair' and calls[-1][1]['mode']=='repair_probe' and len(calls)==2
-
-
-def test_cli_passes_global_interaction_budgets_to_batch(tmp_path,monkeypatch):
-    import physrsr.active.__main__ as cli
-    from physrsr.active.workflows import batch
-    monkeypatch.setattr(cli,'output_path',Path)
-    config=tmp_path/'config.json';cases=tmp_path/'cases.json'
-    save_json(config,dict(task=dict(id='fixture',instruction='Manipulate',success={},constraints={}),
-        loop=dict(max_probes=7,max_probe_cost=40.,probe_cost_weight=.02)))
-    save_json(cases,[dict(episode_id='a'),dict(episode_id='b')])
-    calls=[]
-    monkeypatch.setattr(batch,'run_probe_first_batch',lambda *args,**kwargs:calls.append(kwargs) or dict(status='iteration_budget_exhausted'))
-    assert cli.main(['run','--config',str(config),'--cases',str(cases),'--out',str(tmp_path/'out')])==2
-    budget=calls[0]['budget']
-    assert budget.max_probe_executions==7 and budget.max_probe_cost_s==40. and budget.probe_cost_weight==.02

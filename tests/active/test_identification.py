@@ -5,7 +5,8 @@ import pytest
 
 from physrsr.active.core.contracts import IDENTIFICATION_API_VERSION
 from physrsr.active.core.policy import Policy, execute
-from physrsr.active.agents.identification import design_prompt, task_candidate, source_policy
+from physrsr.active.agents.physic import probe_prompt
+from physrsr.active.core.programs import task_candidate, source_policy
 from physrsr.active.runtime.instrumented import (
     Dispatcher, MeasuredRobot, observation, InstrumentedTarget, move_with_feedback)
 from physrsr.active.tasks.rod_lift_world import SimulatedMeasuredRobot
@@ -92,7 +93,7 @@ def test_hardware_adapter_requires_synchronized_measured_channels():
 
 
 def test_prompt_has_no_task_specific_branch_or_preselected_parameter():
-    prompt = design_prompt(dict(goal=dict(instruction="Translate and reorient the object")))
+    prompt = probe_prompt(dict(goal=dict(instruction="Translate and reorient the object")))
     for forbidden in ("rod_lift", "rod_axis", "com_offset", "15 mm", "binary search", "bisection"):
         assert forbidden not in prompt
     assert "IDENTIFICATION" in prompt

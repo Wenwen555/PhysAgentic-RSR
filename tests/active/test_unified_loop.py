@@ -18,6 +18,7 @@ from physrsr.active.runtime.instrumented import InstrumentedTarget
 from physrsr.active.runtime.predictive import PredictiveSimulator
 from physrsr.active.tasks.rod_lift import RodMeasuredAdapter
 from physrsr.active.workflows.loop import ActiveLoop
+from agent_fixtures import design_answer
 
 
 def sensor_packet():
@@ -138,9 +139,7 @@ class StructuredAnswers:
                 expected_decision_benefit=1. if physical else 0.,estimated_probe_cost_s=1. if physical else 0.)
         if "experimental_design" in properties:
             context=json.loads(content.split("PUBLIC CONTEXT\n")[1])
-            return dict(code=FIT if context["purpose"]=="fit" else VALIDATE,selected_factors=["response"],
-                experimental_design=dict(manipulated_variables=["contact configuration"],minimum_distinct_settings=2),
-                rationale="Numerical fixture design")
+            return design_answer(context,FIT if context["purpose"]=="fit" else VALIDATE)
         if "models" in properties:
             context=json.loads(content.split("Context:\n")[1])
             return dict(rationale="Use actual fixture measurement",evidence_ids=[context["fit_evidence"][0]["evidence_id"]],
@@ -176,14 +175,14 @@ def test_full_v2_chain_uses_physic_updates_real_predictive_parameters_and_freeze
     assert loop.model_version==1 and loop.models[0].parameters==dict(response=.04)
     assert loop.probe_count==2 and len(loop.fit_data)==len(loop.validation_data)==1
     methods=[m for m,p in events]
-    order=["physic.assess_task","physic.design_identification","target.execute_probe",
-        "physic.revise_predictive_model","sim.configure","sim.predict_probe","sim.update_model",
-        "agent.synthesize_identified_policy","sim.evaluate"]
+    order=["physic.assess_task","physic.design_probe","target.execute_probe",
+        "physic.revise_physical_model","sim.configure","sim.predict_probe","sim.update_model",
+        "agent.synthesize_policy","sim.evaluate"]
     positions=[methods.index(m) for m in order]
     assert positions==sorted(positions)
     assert "agent.generate_initial_cap" not in methods
     assert not (loop.output/"initial_cap").exists()
-    first_context=next(p for m,p in events if m=="physic.design_identification")
+    first_context=next(p for m,p in events if m=="physic.design_probe")
     assert "wrench" not in first_context["current_observation"]
     assert first_context["assessment"] is None
     assert "agent.propose" not in methods and "world.evaluate_policy" not in methods and "target.execute_policy" not in methods
@@ -225,7 +224,7 @@ def test_validation_mismatch_requires_new_fit_and_cannot_count_as_sufficiency(tm
     result=loop.run()
     assert result["status"]=="probe_budget_exhausted" and result["final_policy"] is None
     assert len(loop.fit_data)==1 and len(loop.validation_data)==1 and not loop.validation_data[0]["passed"]
-    revisions=[p for m,p in events if m=="physic.revise_predictive_model"]
+    revisions=[p for m,p in events if m=="physic.revise_physical_model"]
     assert len(revisions)==1 and len(revisions[0]["fit_evidence"])==1
 
 
@@ -274,3 +273,69 @@ def test_measured_cost_overrun_stops_before_model_or_policy_revision(tmp_path):
     assert result["probe_cost"]>10.
     assert (loop.output/"active_probe_1/belief.json").exists()
     assert not any(m=="sim.update_model" for m,p in events)
+
+
+@pytest.mark.parametrize('cfg,status',[
+    (LoopConfig(max_probes=0),'probe_budget_exhausted'),
+    (LoopConfig(max_probe_cost=0),'cost_budget_exhausted'),
+    (LoopConfig(max_rounds=1),'round_budget_exhausted')])
+def test_main_loop_budget_exhaustion_cannot_freeze_a_policy(tmp_path,cfg,status):
+    loop,_=build(tmp_path,cfg=cfg)
+    result=loop.run()
+    assert result['status']==status and result['final_policy'] is None
+    assert not (loop.output/'final').exists()
+
+
+def test_main_loop_stop_requires_independent_validation_even_for_robust_candidate(tmp_path):
+    class StopEarly(StructuredAnswers):
+        def generate(self,messages,destination,*,schema):
+            answer=super().generate(messages,destination,schema=schema)
+            if 'action' in schema['properties']:
+                context=json.loads(messages[0]['content'].split('PUBLIC CONTEXT\n')[1])
+                if context['assessment']:
+                    answer.update(action='stop',target_instance_ids=[],interactions=[],
+                        expected_decision_benefit=0.,estimated_probe_cost_s=0.)
+            return answer
+    loop,_=build(tmp_path,answers=StopEarly())
+    result=loop.run()
+    assert loop.assessment['robust'] and not loop.validation_data
+    assert result['status']=='exploration_stopped' and result['final_policy'] is None
+
+
+def test_main_loop_rejects_unsafe_predicted_probe_before_target_execution(tmp_path,monkeypatch):
+    loop,events=build(tmp_path)
+    original=loop.simulator.service.call
+    def unsafe(method,params):
+        response=original(method,params)
+        if method=='sim.predict_probe':
+            for prediction in response['predictions'].values(): prediction['risk']=1.
+        return response
+    monkeypatch.setattr(loop.simulator.service,'call',unsafe)
+    result=loop.run()
+    assert sum(m=='target.execute_probe' for m,_ in events)==1  # grounded bootstrap only
+    assert not loop.validation_data and result['final_policy'] is None
+
+
+def test_main_loop_rejects_cosmetic_fit_source_as_independent_validation(tmp_path):
+    class Cosmetic(StructuredAnswers):
+        def generate(self,messages,destination,*,schema):
+            answer=super().generate(messages,destination,schema=schema)
+            if 'experimental_design' in schema['properties']:
+                context=json.loads(messages[0]['content'].split('PUBLIC CONTEXT\n')[1])
+                if context['purpose']=='validation': answer['code']=FIT+'\n# same fitted action\n'
+            return answer
+    loop,events=build(tmp_path,answers=Cosmetic())
+    result=loop.run()
+    assert not loop.validation_data and result['final_policy'] is None
+    assert sum(m=='target.execute_probe' for m,_ in events)==1
+
+
+def test_main_loop_incomplete_prediction_matrix_is_an_infrastructure_error(tmp_path,monkeypatch):
+    loop,_=build(tmp_path)
+    original=loop.simulator.service.call
+    def incomplete(method,params):
+        return dict(model_version=loop.model_version,rows=[]) if method=='sim.evaluate' else original(method,params)
+    monkeypatch.setattr(loop.simulator.service,'call',incomplete)
+    with pytest.raises(ValueError,match='matrix'): loop.run()
+    result=json.loads((loop.output/'result.json').read_text())
+    assert result['status']=='infrastructure_error' and result['final_policy'] is None
