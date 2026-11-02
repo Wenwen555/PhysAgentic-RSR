@@ -1,0 +1,4 @@
+[submodule "src/cap-x"]
+	path = src/cap-x
+	url = https://github.com/Wenwen555/PhysAgentic-RSR.git
+	branch = cap-x

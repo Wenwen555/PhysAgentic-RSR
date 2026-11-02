@@ -1,0 +1,52 @@
+{
+  "task": {
+    "id": "rod_lift",
+    "instruction": "抓取并抬升杆，保持近似水平和稳定抓持；目标抬升 0.10 m，在可靠成功的前提下减少动作时间。",
+    "success": {
+      "lift_above_table_m": 0.04,
+      "max_abs_axis_z": 0.25,
+      "hold_steps": 10
+    },
+    "constraints": {
+      "grip_force_per_finger_n": 2.0,
+      "nominal_rise_m": 0.1
+    }
+  },
+  "loop": {
+    "max_rounds": 8,
+    "max_probes": 6,
+    "max_probe_cost": 600.0,
+    "min_validation_probes": 1,
+    "reliability": 0.95,
+    "support_mass": 0.99,
+    "model_seeds": [
+      7201,
+      7202
+    ],
+    "max_model_revisions": 4,
+    "feature_scales": [
+      0.005,
+      0.005,
+      0.005,
+      0.05,
+      0.005,
+      0.05,
+      0.005,
+      0.005,
+      0.05,
+      0.005,
+      0.05,
+      0.05,
+      0.05,
+      0.005,
+      0.005,
+      0.005
+    ]
+  },
+  "endpoints": {
+    "simulator": "http://127.0.0.1:8121",
+    "agent": "http://127.0.0.1:8122",
+    "target": "http://127.0.0.1:8123",
+    "physic": "http://127.0.0.1:8124"
+  }
+}

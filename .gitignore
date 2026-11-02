@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.venv/
+
+# Local experiment artifacts and service logs
+/outputs/
+/output/
+logs/
+*.log
+
+# Local credentials
+.env
+.env.*
+!.env.example
+.openrouterkey
+.nvinferencekeys
+.webui_secret_key
+*.pem
+*.key
+*.p12
+
+.DS_Store

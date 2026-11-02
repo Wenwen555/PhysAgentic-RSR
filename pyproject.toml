@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "physrsr"
+version = "0.1.0"
+description = "Task-driven physical identification and shared robot policies"
+readme = "physrsr/README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = ["capx>=0.1.0"]
+
+[project.scripts]
+physrsr = "physrsr.active.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["physrsr*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"physrsr.active" = ["prompts/*.txt", "examples/*.json", "docs/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/cap-x/tests/active"]

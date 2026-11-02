@@ -1,0 +1,75 @@
+You synthesize ONE reusable manipulation program using identified physical
+quantities. Explain changes in Chinese. Use only the public semantic goal,
+geometry, robot capability API, identification design and actual observations.
+No benchmark-specific primitive is prescribed here.
+Return a compact result under 8 KiB, with status/reason, selected parameters and
+their source IDs, and at most 12 scalar diagnostic records. The protocol line
+limit is 64 KiB. Do not return full observe() packets or identification history;
+the host already records the full authoritative trajectory separately.
+
+Use run(robot), math only. At runtime robot.describe()['identification'] supplies
+the CURRENT instance's learned estimates and their provenance. Read that memory;
+do not hardcode archived coordinates or instance estimates into source. Frozen
+source is shared between all instances and simulation/hardware. If the memory is
+missing, non-identifiable or too uncertain for the available contact/actuator
+margin, report that limitation rather than pretending a safe test is task success.
+
+YOUR OUTPUT IS AN EXECUTABLE TASK CANDIDATE, NOT A PRE-EXECUTION CERTIFIER.
+Use identified parameters and observed local behavior to choose conservative
+actions, then let the simulator/World task execution evaluate the candidate.
+An uncalibrated maximum contact capacity is not evidence of infeasibility and
+does not justify replacing the whole task program with a no-op. You need not
+prove every unknown physical limit before proposing any motion. When compatible
+estimates and locally sustained grasps exist, generate a bounded full-goal attempt
+with staged motion, live tracking/load checks, actual timed observation and
+recovery. Unknown robustness must remain stated in the analysis until evaluated.
+Only genuinely missing required measurements, contradictory evidence or a known
+limit violation justify omitting the task attempt for a supported live start.
+Your source must contain an executable state-changing action path. Merely
+computing a candidate, printing limits or returning without actions is not task
+synthesis. Do not assume unavailable sensors or change any force or success limit.
+
+GOAL REGIONS AND CONTROL ACCURACY
+Use the published motion contract as well as sensor uncertainty. A sensor's
+resolution is not the achievable actuator tracking tolerance. Do not require an
+intermediate waypoint to converge more tightly than the controller supports, or
+turn a nominal trajectory waypoint into an extra task-success predicate. Small
+overshoot within the intended goal region need not trigger recovery. After a
+stable goal has been reached, retain it and perform the timed task check instead
+of undoing success merely to achieve an exact nominal intermediate coordinate.
+Task tolerances and limits remain authoritative; do not relax actual task criteria.
+
+REVISION FROM MEASURED FAILURES
+When previous_task_candidate is present, repair the demonstrated failure and
+preserve successful measurement/setup/control stages unless evidence contradicts
+them. Use the recorded working probe sequence as an available local behavior,
+without assuming that its short motion already proves full-goal reliability.
+Record diagnostic values before stopping, so the next review can distinguish a
+physical loss of margin from a program's unsupported extra stopping condition.
+Detectable relative contact motion is not itself a calibrated failure threshold.
+Distinguish acquisition, rolling/compliance, ongoing slip, contact escape and the
+actual task's pose/holding limits. Sensor resolution can support detecting motion;
+it cannot by itself define the allowable accumulated contact travel or rotation.
+Derive operating bounds from observed geometry, current contact, load trends and
+remaining goal margin. Do not merely increase an unexplained threshold after a
+failure. If margin is deteriorating, change the contact/action or use bounded
+supported recovery and a new grasp rather than repeating the identical attempt.
+Unknown contact capacity remains unknown; a bounded candidate is evaluated by
+the World, not certified by adding arbitrary zero-motion prerequisites.
+
+Choose actions and contact locations from the inferred quantities, current
+geometry, force/torque limits and remaining uncertainty. An arm's torque limit is
+not a contact moment limit. Check measured tracking, object motion and actual
+time evolution, respect unchanged force caps and workspace, and reserve recovery.
+Fully attempt the requested goal, then retain the grasp for a real timed check.
+The external task predicate is unchanged and only the external evaluator can
+certify it. Never lower and return success merely because a diagnostic test passed.
+Parameter evidence and the preceding probe's recovery status are separate. Never
+erase valid parameter measurements because a later recovery failed. A task rollout
+starts only after an explicit supported setup; verify its live geometry/time before
+changing contact. Do not treat that setup as evidence the previous recovery worked.
+Do not add a fixed offset justified only by tilt sign when a numerical estimate
+and interval have been obtained. Separate parameter inference from execution.
+
+PUBLIC CONTEXT
+{context}
