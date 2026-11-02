@@ -9,6 +9,8 @@ register_env("franka_real_low_level", FrankaRealLowLevel)
 # Using Robosuite run: uv sync --extra robosuite
 try:
     from .robosuite_cube_lift import FrankaRobosuiteCubeLiftLowLevel
+    from .robosuite_physics_lift import FrankaRobosuitePhysicsLiftLowLevel
+    from .robosuite_rod_lift import FrankaRobosuiteRodLiftLowLevel
     from .robosuite_cubes import FrankaRobosuiteCubesLowLevel
     from .robosuite_cubes_restack import FrankaRobosuiteCubesRestackLowLevel
     from .robosuite_spill_wipe import FrankaRobosuiteSpillWipeLowLevel
@@ -18,6 +20,8 @@ try:
     from .robosuite_nut_assembly import FrankaRobosuiteNutAssemblyVisual
 
     register_env("franka_robosuite_cube_lift_low_level", FrankaRobosuiteCubeLiftLowLevel)
+    register_env("franka_robosuite_physics_lift_low_level", FrankaRobosuitePhysicsLiftLowLevel)
+    register_env("franka_robosuite_rod_lift_low_level", FrankaRobosuiteRodLiftLowLevel)
     register_env("franka_robosuite_cubes_low_level", FrankaRobosuiteCubesLowLevel)
     register_env("franka_robosuite_cubes_restack_low_level", FrankaRobosuiteCubesRestackLowLevel)
     register_env("franka_robosuite_spill_wipe_low_level", FrankaRobosuiteSpillWipeLowLevel)

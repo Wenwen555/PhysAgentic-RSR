@@ -14,6 +14,7 @@ DEFAULT_URL = "http://127.0.0.1:8116"
 
 def init_pyroki(
     server_url: str = DEFAULT_URL,
+    num_starts: int = 1,
 ) -> None:
     """
     A *drop-in replacement* for your original init_pyroki(), but instead of
@@ -38,6 +39,8 @@ def init_pyroki(
         payload = {
             "target_pose_wxyz_xyz": target_pose_wxyz_xyz.tolist(),
             "prev_cfg": prev_cfg.tolist() if prev_cfg is not None else None,
+            # Servers older than the multi-start change ignore this field.
+            "num_starts": int(num_starts),
         }
 
         data = post_with_retries(f"{server_url}/ik", payload, timeout_seconds=15.0)

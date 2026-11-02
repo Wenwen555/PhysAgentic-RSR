@@ -162,11 +162,16 @@ class FrankaRobosuiteCubesLowLevel(RobosuiteBaseEnv):
             ]
         )
 
+        # robosuite reports object quaternions as xyzw; vtf.SE3 expects wxyz.
+        def _wxyz(quat_xyzw) -> np.ndarray:
+            q = np.asarray(quat_xyzw, dtype=np.float64)
+            return np.array([q[3], q[0], q[1], q[2]])
+
         cubeA_world = vtf.SE3(
-            wxyz_xyz=np.concatenate([robosuite_obs["cubeA_quat"], robosuite_obs["cubeA_pos"]])
+            wxyz_xyz=np.concatenate([_wxyz(robosuite_obs["cubeA_quat"]), robosuite_obs["cubeA_pos"]])
         )
         cubeB_world = vtf.SE3(
-            wxyz_xyz=np.concatenate([robosuite_obs["cubeB_quat"], robosuite_obs["cubeB_pos"]])
+            wxyz_xyz=np.concatenate([_wxyz(robosuite_obs["cubeB_quat"]), robosuite_obs["cubeB_pos"]])
         )
 
         base_transform = vtf.SE3(wxyz_xyz=base_link_wxyz_xyz).inverse()

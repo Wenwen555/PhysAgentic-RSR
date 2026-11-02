@@ -24,6 +24,15 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
 
     _SUBSAMPLE_RATE = 2
 
+    #: Robosuite environment class instantiated by this wrapper. Subclasses that
+    #: swap in a custom environment (e.g. a rod-lift variant) override this and
+    #: optionally add extra constructor kwargs via :meth:`_robosuite_env_kwargs`.
+    _robosuite_env_cls = suite.environments.manipulation.lift.Lift
+
+    def _robosuite_env_kwargs(self) -> dict[str, Any]:
+        """Extra kwargs forwarded to the robosuite env constructor. Override in subclasses."""
+        return {}
+
     def __init__(
         self,
         controller_cfg: str = "capx/integrations/robosuite/controllers/config/robots/panda_joint_ctrl.json",
@@ -46,7 +55,7 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
         if privileged:
             if not enable_render:
                 self.render_camera_names = []
-                self.robosuite_env = suite.environments.manipulation.lift.Lift(
+                self.robosuite_env = self._robosuite_env_cls(
                     robots=["Panda"],
                     use_camera_obs=False,
                     has_renderer=False,
@@ -59,10 +68,11 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
                         controller=self.controller_cfg
                     ),
                     horizon=max_steps,
+                    **self._robosuite_env_kwargs(),
                     reward_shaping=True,
                 )
             else:
-                self.robosuite_env = suite.environments.manipulation.lift.Lift(
+                self.robosuite_env = self._robosuite_env_cls(
                     robots=["Panda"],
                     has_renderer=False,
                     has_offscreen_renderer=True,
@@ -75,10 +85,11 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
                         controller=self.controller_cfg
                     ),
                     horizon=max_steps,
+                    **self._robosuite_env_kwargs(),
                     reward_shaping=True,
                 )
         else:
-            self.robosuite_env = suite.environments.manipulation.lift.Lift(
+            self.robosuite_env = self._robosuite_env_cls(
                 robots=["Panda"],
                 has_renderer=True,
                 has_offscreen_renderer=True,
@@ -90,6 +101,7 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
                 camera_widths=self._render_width,
                 controller_configs=load_composite_controller_config(controller=self.controller_cfg),
                 horizon=max_steps,
+                **self._robosuite_env_kwargs(),
                 reward_shaping=True,
             )
 
@@ -119,6 +131,12 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
             self.robosuite_env.sim.step()
             self._set_gripper(1.0)
 
+        # The settle loop above steps MuJoCo directly, so robosuite's observable
+        # cache still holds the *pre-settle* values. A program that samples the
+        # object pose right after reset would see the spawn pose (objects are
+        # spawned a centimetre above the table and drop), so force a refresh.
+        self.robosuite_env._update_observables(force=True)
+
         robosuite_obs = self.robosuite_env._get_observations()
         self._current_joints = np.array(robosuite_obs["robot0_joint_pos"], dtype=np.float64)
         # We do this because for some reason modifying qpos does not update robot0_joint_pos
@@ -146,8 +164,14 @@ class FrankaRobosuiteCubeLiftLowLevel(RobosuiteBaseEnv):
             ]
         )
 
+        # robosuite's Lift observable reports the object quaternion as *xyzw*
+        # (``convert_quat(..., to="xyzw")``); vtf.SE3 expects wxyz. Passing it
+        # through unconverted silently flips the object's orientation, which is
+        # harmless for a yaw-symmetric cube but ruins yaw-aligned grasps.
+        cube_xyzw = np.asarray(robosuite_obs["cube_quat"], dtype=np.float64)
+        cube_wxyz = np.array([cube_xyzw[3], cube_xyzw[0], cube_xyzw[1], cube_xyzw[2]])
         cubeA_world = vtf.SE3(
-            wxyz_xyz=np.concatenate([robosuite_obs["cube_quat"], robosuite_obs["cube_pos"]])
+            wxyz_xyz=np.concatenate([cube_wxyz, robosuite_obs["cube_pos"]])
         )
 
         base_transform = vtf.SE3(wxyz_xyz=base_link_wxyz_xyz).inverse()

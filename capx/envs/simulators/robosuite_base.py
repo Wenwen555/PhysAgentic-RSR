@@ -14,6 +14,7 @@ import viser
 import viser.extras
 import viser.transforms as vtf
 from robosuite.utils.camera_utils import get_real_depth_map
+from scipy.spatial.transform import Rotation as SciRotation
 
 from capx.envs.base import BaseEnv
 from capx.utils.camera_utils import obs_get_rgb
@@ -77,7 +78,11 @@ class RobosuiteBaseEnv(BaseEnv):
     def _init_robot_links(self) -> None:
         """Initialize robot link indices and base transforms. Call after robosuite_env is created."""
         self.gripper_metric_length = 0.04
-        self.base_link_idx = self.robosuite_env.sim.model.body_name2id("fixed_mount0_base")
+        # ``robot0_base`` (not ``fixed_mount0_base``) is the body the URDF root
+        # link maps to, so it is the frame the IK solver (``init_pyroki``) and
+        # ``get_eef_pose`` work in. The mount plate sits 1 cm higher and using
+        # it silently biases every Cartesian pose by that amount.
+        self.base_link_idx = self.robosuite_env.sim.model.body_name2id("robot0_base")
         self.gripper_link_idx = self.robosuite_env.sim.model.body_name2id("gripper0_right_eef")
 
         self.base_link_wxyz_xyz = np.concatenate(
@@ -172,7 +177,12 @@ class RobosuiteBaseEnv(BaseEnv):
         self._sim_step_count += 1
 
     def move_to_joints_blocking(
-        self, joints: np.ndarray, *, tolerance: float = 0.02, max_steps: int = 100
+        self,
+        joints: np.ndarray,
+        *,
+        tolerance: float = 0.02,
+        max_steps: int = 100,
+        max_joint_speed: float | None = None,
     ) -> None:
         """Move to target joint positions using Robosuite's controller.
 
@@ -180,9 +190,33 @@ class RobosuiteBaseEnv(BaseEnv):
             joints: (7,) target joint positions in radians
             tolerance: Position tolerance for convergence
             max_steps: Maximum simulation steps to reach target
+            max_joint_speed: Optional cap (rad/s) on the commanded joint speed.
+                ``None`` (default) hands the target straight to the controller,
+                which moves as fast as its gains allow. A finite value
+                interpolates the *commanded* joints toward the target so the
+                arm moves no faster than this, which is the physical knob behind
+                the transport-speed axis (peak joint speed at the default gains
+                is ~2.5 rad/s). The arm still converges to ``target``; only the
+                path there is slower. Mirrored on ``FrankaRealLowLevel`` so the
+                same program runs on hardware.
         """
         target = np.asarray(joints, dtype=np.float64).reshape(7)
         self._current_joints = target
+
+        step_limit = None
+        command = target
+        if max_joint_speed is not None:
+            step_limit = max(float(max_joint_speed), 1e-3) * float(
+                self.robosuite_env.control_timestep
+            )
+            # Start the ramp from where the arm actually is, and give the slow
+            # move enough steps to finish: a truncated move would look like a
+            # physical failure (object never reaches the goal) rather than a
+            # speed-limit artefact.
+            robosuite_obs = self.robosuite_env._get_observations()
+            command = np.array(robosuite_obs["robot0_joint_pos"], dtype=np.float64)
+            needed = int(np.ceil(float(np.max(np.abs(target - command))) / step_limit))
+            max_steps = max(int(max_steps), needed + 20)
 
         steps = 0
         while steps < max_steps:
@@ -193,7 +227,14 @@ class RobosuiteBaseEnv(BaseEnv):
             if error < tolerance:
                 break
 
-            action = np.concatenate([target, [self._gripper_fraction, self._gripper_fraction]])
+            if step_limit is not None:
+                delta = target - command
+                largest = float(np.max(np.abs(delta)))
+                if largest > step_limit:
+                    delta = delta * (step_limit / largest)
+                command = command + delta
+
+            action = np.concatenate([command, [self._gripper_fraction, self._gripper_fraction]])
             action[-2:] = 1.0 - action[-2:] * 2.0
 
             self._do_robosuite_step(action)
@@ -206,6 +247,44 @@ class RobosuiteBaseEnv(BaseEnv):
 
             steps += 1
             self._sim_step_count += 1
+
+    def get_eef_pose(self) -> tuple[np.ndarray, np.ndarray]:
+        """Measured pose of the gripper TCP in the *robot base* frame.
+
+        The IK (``init_pyroki``) solves in the URDF/robot-base frame, so any
+        Cartesian feedback on the achieved pose has to be expressed there as
+        well. ``robot0_base`` is the body that the URDF root link maps to; the
+        returned ``(wxyz, xyz)`` is the ``gripper0_right_eef`` body (the point
+        between the finger pads) expressed in that frame.
+
+        Reading the pose from the sim is deliberate: :meth:`move_to_joints_blocking`
+        does not refresh ``gripper_link_wxyz_xyz``, and the point of this getter
+        is to see where the arm *actually* stopped.
+        """
+        sim = self.robosuite_env.sim
+        model = sim.model
+        eef_id = model.body_name2id("gripper0_right_eef")
+        base_id = model.body_name2id("robot0_base")
+        base_quat = np.asarray(sim.data.body_xquat[base_id], dtype=np.float64)
+        base_pos = np.asarray(sim.data.body_xpos[base_id], dtype=np.float64)
+        eef_quat = np.asarray(sim.data.body_xquat[eef_id], dtype=np.float64)
+        eef_pos = np.asarray(sim.data.body_xpos[eef_id], dtype=np.float64)
+
+        # base_quat is (w, x, y, z); scipy wants (x, y, z, w).
+        base_rot = SciRotation.from_quat(
+            np.array([base_quat[1], base_quat[2], base_quat[3], base_quat[0]])
+        )
+        rel_pos = base_rot.inv().apply(eef_pos - base_pos)
+        rel_quat_xyzw = (
+            base_rot.inv()
+            * SciRotation.from_quat(
+                np.array([eef_quat[1], eef_quat[2], eef_quat[3], eef_quat[0]])
+            )
+        ).as_quat()
+        rel_quat = np.array(
+            [rel_quat_xyzw[3], rel_quat_xyzw[0], rel_quat_xyzw[1], rel_quat_xyzw[2]]
+        )
+        return rel_quat, rel_pos
 
     def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         """Low-level step - not typically called directly in code execution mode."""

@@ -31,6 +31,7 @@ output/
 old_output/
 outputs/
 output_debug/
+logs/
 outputs**
 curobo_debug/
 =*

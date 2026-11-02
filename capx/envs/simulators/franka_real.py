@@ -23,6 +23,7 @@ from capx.utils.video_utils import resize_with_pad
 from capx.utils.depth_utils import depth_color_to_pointcloud
 from capx.utils.msgpack_server_client_utils import MsgpackNumpyServer
 from robot_descriptions.loaders.yourdfpy import load_robot_description
+from scipy.spatial.transform import Rotation as SciRotation
 
 
 import asyncio
@@ -153,6 +154,32 @@ class FrankaRealLowLevel(BaseEnv):
 
     
     
+    def get_eef_pose(self) -> tuple[np.ndarray, np.ndarray]:
+        """Measured TCP pose in the URDF/robot-base frame: ``(wxyz, xyz)``.
+
+        Real-arm counterpart of :meth:`RobosuiteBaseEnv.get_eef_pose` (same
+        name, same frame, same point) so that the IK-side Cartesian feedback in
+        ``FrankaControlPrivilegedApi`` works unchanged on hardware. FK is
+        computed from the *measured* joint positions with the same URDF the IK
+        server uses, hence no base-frame bookkeeping is needed.
+        """
+        if not hasattr(self, "urdf"):
+            # The URDF is only loaded eagerly when viser debugging is on.
+            self.urdf = load_robot_description("panda_description")
+        joints = self.obs.get("robot_joint_pos")
+        if joints is None:
+            raise RuntimeError("no robot_joint_pos received from the real arm yet")
+        joints = np.asarray(joints, dtype=np.float64).reshape(-1)
+        cfg = np.zeros(len(self.urdf.actuated_joint_names), dtype=np.float64)
+        cfg[:7] = joints[:7]
+        if cfg.size > 7:
+            cfg[7] = 0.0  # finger joint does not move the TCP
+        self.urdf.update_cfg(cfg)
+        tcp = np.asarray(self.urdf.get_transform("panda_hand_tcp"), dtype=np.float64)
+        quat_xyzw = SciRotation.from_matrix(tcp[:3, :3]).as_quat()
+        quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])
+        return quat_wxyz, tcp[:3, 3]
+
     def _update_from_network(self):
         msg = self.low_level_server.latest_observation
         if msg is None:
@@ -188,22 +215,58 @@ class FrankaRealLowLevel(BaseEnv):
     # ----------------------- FrankaControlApi Interface -----------------------
 
     def move_to_joints_blocking(
-        self, joints: np.ndarray, *, tolerance: float = 0.051, max_steps: int = 350
+        self,
+        joints: np.ndarray,
+        *,
+        tolerance: float = 0.051,
+        max_steps: int = 350,
+        max_joint_speed: float | None = None,
     ) -> None:
         """Move to target joint positions using Robosuite's controller.
 
         Args:
             joints: (7,) target joint positions in radians
             tolerance: Position tolerance for convergence
-            max_steps: Maximum simulation steps to reach target
+            max_steps: Maximum supervision iterations to reach target
+            max_joint_speed: Optional cap (rad/s) on the commanded joint speed.
+                ``None`` (default) publishes the final target and lets the arm's
+                controller ramp to it. A finite value walks the published
+                setpoint toward the target from the *measured* joints by at most
+                ``max_joint_speed * _action_publish_period`` per publish, so the
+                real arm follows the same speed-limited trajectory the
+                simulator executes (see ``RobosuiteBaseEnv``).
         """
         target = np.asarray(joints, dtype=np.float64).reshape(7)
         self._current_joints = target
 
+        # Maximum joint delta per publish period (None = no limit).
+        publish_step = (
+            None
+            if max_joint_speed is None
+            else max(float(max_joint_speed), 1e-3) * self._action_publish_period
+        )
+
+        def limited_setpoint(current: np.ndarray) -> np.ndarray:
+            delta = target - current
+            largest = float(np.max(np.abs(delta)))
+            if publish_step is not None and largest > publish_step:
+                delta = delta * (publish_step / largest)
+            return current + delta
+
+        # Don't publish an unlimited jump when a speed limit is requested: seed
+        # the setpoint from the last measured joints if they are available.
+        start = target
+        if publish_step is not None:
+            joints_obs = self.obs.get("robot_joint_pos")
+            if joints_obs is not None:
+                start = limited_setpoint(
+                    np.asarray(joints_obs[:-1], dtype=np.float64).reshape(7)
+                )
+
         command = {
             "timestamp": time.time(),
             "left": {
-                "joint_pos": target.astype(np.float32).tolist(),
+                "joint_pos": start.astype(np.float32).tolist(),
                 "gripper": float(self._gripper_fraction),
             },
         }
@@ -222,9 +285,20 @@ class FrankaRealLowLevel(BaseEnv):
                 if error < tolerance:
                     break
 
+                if publish_step is not None:
+                    setpoint = limited_setpoint(current)
+                    command["left"]["joint_pos"] = setpoint.astype(np.float32).tolist()
+                    # A rate-limited move takes largest/max_joint_speed seconds;
+                    # the supervision loop ticks at ~10 ms. Extend (never shrink)
+                    # the budget so the move is not silently truncated.
+                    largest = float(np.max(np.abs(target - current)))
+                    needed = int(np.ceil(largest / max_joint_speed / 0.01)) + 50
+                    max_steps = max(int(max_steps), needed)
+
             now = time.time()
             if now - last_publish >= self._action_publish_period:
                 self.low_level_server.latest_action = command
+                self.latest_action = command
                 last_publish = now
 
             time.sleep(0.01)

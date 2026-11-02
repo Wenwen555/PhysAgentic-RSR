@@ -8,6 +8,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, List
 
+import jax
+import jax.numpy as jnp
+import jax_dataclasses as jdc
+import jaxlie
+import jaxls
 import numpy as np
 import pyroki as pk  # type: ignore
 import uvicorn
@@ -176,6 +181,9 @@ class IkRequest(BaseModel):
 
     target_pose_wxyz_xyz: list[float]  # length 7 (wxyz + xyz)
     prev_cfg: list[float] | None = None  # optional
+    #: Extra deterministic restarts to try when the primary solve lands short.
+    #: 1 (the default) keeps the historical single-solve behaviour.
+    num_starts: int = 1
 
 
 class IkResponse(BaseModel):
@@ -286,6 +294,17 @@ def init_pyroki_server(
     )
     _TARGET_LINK = target_link_name
 
+    # Warm up the multi-start solver so the first real request does not pay for
+    # JAX tracing (a few seconds) while a client is blocking on it.
+    n = int(_ROBOT.joints.num_actuated_joints)
+    _solve_ik_from(
+        _ROBOT,
+        jnp.asarray(_ROBOT.links.names.index(target_link_name)),
+        jnp.asarray(np.array([1.0, 0.0, 0.0, 0.0])),
+        jnp.asarray(np.zeros(3)),
+        jnp.asarray(np.zeros(n)),
+    ).block_until_ready()
+
     logger.info("PyRoki loaded and ready!")
 
 
@@ -294,24 +313,145 @@ def init_pyroki_server(
 # =====================================================
 
 
-def _do_solve_ik(target_pose_wxyz_xyz: np.ndarray, prev_cfg: np.ndarray | None) -> list[float]:
-    """Blocking IK solve (CPU-bound)."""
+#: Fixed seed for the multi-start restarts. Renewing the rng each request keeps
+#: the solver deterministic for a fixed ``(target, prev_cfg, num_starts)``.
+_MULTISTART_RNG_SEED = 0
+#: Position residual (metres) below which a candidate solution is accepted.
+_IK_POS_TOL = 0.002
+#: Weight converting an orientation error (rad) into a position-equivalent (m),
+#: matching the 50:10 positional/orientation weights of the pose cost.
+_IK_ORI_WEIGHT = 0.1
+
+
+@jdc.jit
+def _solve_ik_from(
+    robot: pk.Robot,
+    target_link_index: jax.Array,
+    target_wxyz: jax.Array,
+    target_position: jax.Array,
+    init_cfg: jax.Array,
+) -> jax.Array:
+    """Pose + limit IK seeded at ``init_cfg`` (no velocity regularisation).
+
+    ``pks.solve_ik_vel_cost`` adds a cost pulling the solution toward
+    ``prev_cfg``; that is good for continuity but can leave a 1-2 cm residual
+    when reaching the target requires reconfiguring the wrist. This variant
+    keeps only the pose and limit costs, so each restart can settle in its own
+    basin.
+    """
+    joint_var = robot.joint_var_cls(0)
+    factors = [
+        pk.costs.pose_cost_analytic_jac(
+            robot,
+            joint_var,
+            jaxlie.SE3.from_rotation_and_translation(
+                jaxlie.SO3(target_wxyz), target_position
+            ),
+            target_link_index,
+            pos_weight=50.0,
+            ori_weight=10.0,
+        ),
+        pk.costs.limit_cost(robot, joint_var, weight=100.0),
+    ]
+    initial_vals = jaxls.VarValues.make((joint_var.with_value(init_cfg),))
+    sol = (
+        jaxls.LeastSquaresProblem(factors, [joint_var])
+        .analyze()
+        .solve(
+            verbose=False,
+            linear_solver="dense_cholesky",
+            trust_region=jaxls.TrustRegionConfig(lambda_initial=1.0),
+            initial_vals=initial_vals,
+        )
+    )
+    return sol[joint_var]
+
+
+def _pose_residual(
+    q: np.ndarray, target_wxyz: np.ndarray, target_position: np.ndarray, link_index: int
+) -> tuple[float, float]:
+    """Return ``(combined_score, position_error)`` of config ``q`` vs the target."""
+    q = np.asarray(q, dtype=np.float64).reshape(-1)
+    fk = np.asarray(_ROBOT.forward_kinematics(q[None, :])[0][link_index], dtype=np.float64)
+    dp = float(np.linalg.norm(fk[4:] - target_position))
+    rot_err = Rotation.from_quat(
+        np.array([fk[1], fk[2], fk[3], fk[0]])
+    ) * Rotation.from_quat(
+        np.array([target_wxyz[1], target_wxyz[2], target_wxyz[3], target_wxyz[0]])
+    ).inv()
+    dtheta = float(np.linalg.norm(rot_err.as_rotvec()))
+    return dp + _IK_ORI_WEIGHT * dtheta, dp
+
+
+def _do_solve_ik(
+    target_pose_wxyz_xyz: np.ndarray, prev_cfg: np.ndarray | None, num_starts: int = 1
+) -> list[float]:
+    """Blocking IK solve (CPU-bound).
+
+    The primary solve is the historical one (cold from zeros, or velocity-cost
+    from ``prev_cfg``). If it misses the target by more than ``_IK_POS_TOL``,
+    ``num_starts`` extra pose-only restarts are tried and the best solution is
+    returned. The pose-only least-squares solver has local minima that wedge the
+    wrist against the joint limits (a 1-2 cm position residual despite an exact
+    solution existing), which is exactly the failure that makes a 3 cm-wide
+    object ungraspable.
+    """
+    target_wxyz = np.asarray(target_pose_wxyz_xyz[:-3], dtype=np.float64)
+    target_position = np.asarray(target_pose_wxyz_xyz[-3:], dtype=np.float64)
+    link_index = _ROBOT.links.names.index(_TARGET_LINK)
+
     if prev_cfg is None:
         q = pks.solve_ik(
             robot=_ROBOT,
             target_link_name=_TARGET_LINK,
-            target_position=target_pose_wxyz_xyz[-3:],
-            target_wxyz=target_pose_wxyz_xyz[:-3],
+            target_position=target_position,
+            target_wxyz=target_wxyz,
         )
     else:
         q = pks.solve_ik_vel_cost(
             robot=_ROBOT,
             target_link_name=_TARGET_LINK,
-            target_position=target_pose_wxyz_xyz[-3:],
-            target_wxyz=target_pose_wxyz_xyz[:-3],
+            target_position=target_position,
+            target_wxyz=target_wxyz,
             prev_cfg=prev_cfg,
         )
-    return list(map(float, q))
+    q = np.asarray(q, dtype=np.float64).reshape(-1)
+    score, dp = _pose_residual(q, target_wxyz, target_position, link_index)
+    if num_starts <= 1 or dp <= _IK_POS_TOL:
+        return list(map(float, q))
+
+    # Restart from deterministic seeds spread over the joint range. ``prev_cfg``
+    # (or zeros) stays the first candidate so that a good primary solution is
+    # never replaced by a worse restart.
+    n_joints = int(_ROBOT.joints.num_actuated_joints)
+    lower = np.asarray(_ROBOT.joints.lower_limits, dtype=np.float64).reshape(-1)
+    upper = np.asarray(_ROBOT.joints.upper_limits, dtype=np.float64).reshape(-1)
+    rng = np.random.default_rng(_MULTISTART_RNG_SEED)
+    best_q, best_score, best_dp = q, score, dp
+    for _ in range(max(1, int(num_starts) - 1)):
+        init = lower + rng.random(n_joints) * (upper - lower)
+        cand = np.asarray(
+            _solve_ik_from(
+                _ROBOT,
+                jnp.asarray(link_index),
+                jnp.asarray(target_wxyz),
+                jnp.asarray(target_position),
+                jnp.asarray(init),
+            ),
+            dtype=np.float64,
+        ).reshape(-1)
+        cand_score, cand_dp = _pose_residual(
+            cand, target_wxyz, target_position, link_index
+        )
+        # Prefer accuracy first; on ties prefer the candidate closest to the
+        # previous configuration so the arm does not jump between branches.
+        if (cand_dp <= _IK_POS_TOL and best_dp > _IK_POS_TOL) or (
+            cand_score < best_score - 1e-6
+        ):
+            best_q, best_score, best_dp = cand, cand_score, cand_dp
+        if best_dp <= _IK_POS_TOL:
+            break
+    return list(map(float, best_q))
 
 
 @app.post("/ik", response_model=IkResponse)
@@ -323,7 +463,9 @@ async def solve_ik(req: IkRequest):
     prev_cfg = np.array(req.prev_cfg, dtype=np.float64) if req.prev_cfg is not None else None
 
     try:
-        joints = await _run_in_thread(_do_solve_ik, target_pose_wxyz_xyz, prev_cfg)
+        joints = await _run_in_thread(
+            _do_solve_ik, target_pose_wxyz_xyz, prev_cfg, int(req.num_starts)
+        )
     except Exception as e:
         logger.exception("IK failed")
         raise HTTPException(500, f"IK solve failed: {e}")

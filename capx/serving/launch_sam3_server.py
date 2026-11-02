@@ -3,6 +3,8 @@ import base64
 import functools
 import io
 import logging
+import os
+from pathlib import Path
 from typing import Any, List, Tuple
 
 import numpy as np
@@ -233,10 +235,30 @@ async def segment_point(req: PointPromptRequest):
         raise HTTPException(status_code=500, detail=f"Point prompt inference failed: {e}")
 
 
+def _resolve_checkpoint_path(checkpoint_path: str | None = None) -> str | None:
+    """Locate a local SAM3 checkpoint.
+
+    Resolution order: explicit argument, ``SAM3_CHECKPOINT_PATH`` env var,
+    then the repo-local ``checkpoints/sam3/sam3.pt`` (usually a symlink to a
+    shared copy). Returns ``None`` when no local checkpoint exists, in which
+    case ``build_sam3_image_model`` falls back to the gated HF download.
+    """
+    candidates = [
+        checkpoint_path,
+        os.environ.get("SAM3_CHECKPOINT_PATH"),
+        str(Path(__file__).resolve().parents[2] / "checkpoints" / "sam3" / "sam3.pt"),
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).expanduser().is_file():
+            return str(Path(candidate).expanduser())
+    return None
+
+
 def main(
     device: str = "cuda",
     port: int = 8114,
     host: str = "127.0.0.1",
+    checkpoint_path: str | None = None,
 ):
     global _MODEL, _PROCESSOR, _DEVICE
 
@@ -254,10 +276,15 @@ def main(
             device_idx = int(device.split(":")[-1]) if ":" in device else 0
             torch.cuda.set_device(device_idx)
 
-    logger.info("Loading SAM3 model...")
+    local_ckpt = _resolve_checkpoint_path(checkpoint_path)
+    logger.info(f"Loading SAM3 model from {local_ckpt or 'HuggingFace facebook/sam3'}...")
     try:
-        # Assuming build_sam3_image_model loads default checkpoint
-        _MODEL = build_sam3_image_model(enable_inst_interactivity=True)
+        # Prefer a local checkpoint so we never depend on the gated HF repo.
+        _MODEL = build_sam3_image_model(
+            enable_inst_interactivity=True,
+            checkpoint_path=local_ckpt,
+            load_from_HF=local_ckpt is None,
+        )
     except Exception as e:
         logger.error(f"Error building SAM3 model: {e}")
         raise
