@@ -1,0 +1,44 @@
+{
+  "seeds": [
+    19001
+  ],
+  "grip_force": 2.0,
+  "objects": {
+    "rod_a": {
+      "physics": {
+        "mass_kg": 0.18,
+        "com_offset": -0.04,
+        "friction": 1.5
+      },
+      "table_xy_m": [
+        0.0,
+        -0.18
+      ],
+      "yaw_rad": 0.0
+    },
+    "rod_b": {
+      "physics": {
+        "mass_kg": 0.18,
+        "com_offset": 0.0,
+        "friction": 1.5
+      },
+      "table_xy_m": [
+        0.0,
+        0.0
+      ],
+      "yaw_rad": 0.0
+    },
+    "rod_c": {
+      "physics": {
+        "mass_kg": 0.18,
+        "com_offset": 0.06,
+        "friction": 1.5
+      },
+      "table_xy_m": [
+        0.0,
+        0.18
+      ],
+      "yaw_rad": 0.0
+    }
+  }
+}

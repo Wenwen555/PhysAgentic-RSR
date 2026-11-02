@@ -14,6 +14,11 @@ and trials. Use .get() for optional fields. Trials contain the executed settings
 actual responses and validity/recovery results. Continue an unfinished search
 from this evidence instead of restarting a known uninformative setting after
 every prepared episode. Never pool distinct instances or branch on instance IDs.
+In the main loop there is ONE World and ONE robot. If observe() has an objects
+mapping, its stable object IDs are perception tracks in the SAME scene, not
+independent instances. identification['objects'][object_id]['estimates'] indexes
+their separate measured estimates. Return object_id on EVERY scene estimate;
+never apply one object's mass/COM/friction estimate to another object.
 robot.observe() returns:
   time_s, coordinate_frame;
   object: position[3], quaternion_wxyz[4], axes[3][3] (body x,y,z in base),
@@ -22,6 +27,14 @@ robot.observe() returns:
   wrench: force_n[3], torque_nm[3], frame='robot_base', about='tcp',
     valid, provenance (raw wrist transducer including tool weight; NOT object-only);
   joints: position_rad[7], actuator_torque_nm[7]; gripper: opening_m.
+Scene observations additionally contain objects: mapping stable object_id to the
+same measurable geometry fields as object. All objects share one timestamp, TCP,
+wrist and joint state. The singular object is a compatibility view of the first
+sorted ID, not the object currently grasped. Use objects to plan the whole task.
+Scene capabilities.workspace publishes min_position_m/max_position_m [x,y,z];
+all motions use these shared bounds. Restore support for ALL objects before
+opening the gripper or checkpointing. A raw wrist wrench is a shared robot
+measurement, not a separately measured wrench for each object.
 support_clearance_m is a visual geometry/plane calculation, not a contact sensor.
 Wrist measurements need unloaded tare at matching orientation and settled motion.
 Table support and acceleration confound force/torque parameter inference.

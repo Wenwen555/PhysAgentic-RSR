@@ -134,7 +134,8 @@ more informative setting is reachable. Conversely, failed recovery must stop.
 Distinguish the range of experimental SETTINGS from the amplitude of a LOCAL
 excitation at each setting. Settings may span the observed admissible geometry;
 local motion limits do not imply that configurations must be near the centre.
-The workspace origin is capabilities.workspace.reference_position_m.
+Use capabilities.workspace as published: scene min_position_m/max_position_m
+bounds apply to the entire scene; single-object adapters may publish a reference_position_m.
 Use explicit public methods; getattr, dynamic attribute dispatch, files and eval
 are unavailable. Keep control/estimation code concise, with bounded experiments.
 

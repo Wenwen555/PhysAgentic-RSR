@@ -1,7 +1,10 @@
+当前主入口是单 World 的 `run`，完整预测闭环见 [架构说明](architecture.md)，多对象接口见 [场景合同](single_world.md)。
+单次诊断使用 [debug](debug.md)，旧实验阶段管理和批量入口已删除。
+
 # 通用物理辨识与共享策略
 
 自动入口已统一为 `run`，模型提交与 v2 服务启动见 [自动闭环](architecture.md)。
-下列分阶段函数仍用于单阶段检查与显式修订；自动状态机使用相同的 Physic/Coding API 和执行合同。
+自动状态机与单次诊断使用相同的 Physic/Coding API 和执行合同。
 
 Physic Agent 根据语义目标、视觉姿态/几何和机器人能力，选择影响任务决策的因素。
 无需初版 CaP 或未辨识 Simulator 的预测。这里的视觉输入是感知 API 的结构化输出，不是直接输入 RGB 图像。
@@ -10,25 +13,22 @@ Physic Agent 根据语义目标、视觉姿态/几何和机器人能力，选择
 
 ## 数据流
 
-1. `physic.design_identification` 输出因素排序、受控变量、多个实验设置、测量方程、可辨识分量、误差区间计算与完整 `run(robot)`。
+1. `physic.design_probe` 输出因素排序、受控变量、多个实验设置、测量方程、可辨识分量、误差区间计算与完整 `run(robot)`。
 2. `target.execute_probe` 执行冻结源码，保存动作参数和实测 API 边界观测。空载校准动作与物体交互分别统计。
-3. Probe 返回带来源的参数估计。控制失败状态和已获得的有效物理证据分别保留，每个实例独立存储。
-4. `target.update_identification` 写入当前实例的估计记忆；生成程序通过 `robot.describe()['identification']` 读取。
-5. `agent.synthesize_identified_policy` 生成同一份任务候选。控制精度、名义航点和任务目标区域分别处理，候选通过实际执行验证。
-6. 仍有物理歧义时使用 `identification redesign`；参数已有足够证据而失败来自控制/目标处理时使用 `identification revise-task`，避免无必要地继续 Probe。
+3. Probe 返回带来源的参数估计。控制失败状态和已获得的有效物理证据分别保留，场景内对象按 object_id 区分。
+4. `target.update_identification` 写入当前 World 的估计记忆；生成程序通过 `robot.describe()['identification']` 读取。
+5. `agent.synthesize_policy` 生成同一份任务候选。控制精度、名义航点和任务目标区域分别处理，候选通过实际执行验证。
+6. 主 Loop 根据新的不确定性选择 Probe 或 CaP 修订；诊断时可显式指定 `debug repair-probe` 或 `debug synthesize-policy`，不会自动进入另一阶段。
 
-`run --cases` 首先由 Physic Agent 判断逐实例证据需求，再选择交互或任务程序合成。
-有可用证据的实例可以先生成并验证共享候选，不等待所有其他实例完成辨识。
-源码修复不自动执行，后续交互须有独立的决策与成本理由，详见 [实验调度合同](exploration.md)。
-每个实例保留独立的 `estimates`、最新 `trials` 和带证据来源的 `trial_history`，
-后续恢复失败不会抹掉此前有效测量；读取历史估计不构成新的独立测量。
-准备新 episode 后仍可根据此前失败设置继续搜索，不能跨实例混合参数。
-批量入口只在全部配置的原 World 判定成功后生成 `final_cap/`；部分执行记录不能触发交付。
+主 `ActiveLoop` 由 Physic Agent 评估整个 World 的证据需求，再选择交互、模型更新、任务程序合成或独立验证。
+源码修复不自动执行，后续交互须有独立决策与成本理由，详见 [实验调度合同](exploration.md)。
+同一 World 内每个对象通过 `object_id` 关联测量与估计，恢复失败不抹掉此前有效证据。
+主循环只有一个 `current` 决策范围；不能将三个共存物体拆成三个独立实例。
+单次诊断只连接一个 Target，不接受独立 World case 列表，也不提供冻结决策。
 已有任务候选时，新增 Probe 后仍保留候选源码和原失败轨迹，将新测量一同交给 Coding Agent 修订。
 程序错误（例如返回值超过协议限制）保留为 `error` 并进入修订；基础设施错误独立报错，不计为普通物理失败。
 
 参数名和估计模型是生成结果。代码不按任务名称分发质心搜索、摩擦测试或其他固定辨识器。
-`examples/identification_acceptance.py` 是 benchmark 数据准备，独立于 Agent 与通用工作流。
 
 ## 公开 API 与本体信息
 
@@ -80,10 +80,9 @@ target = InstrumentedTarget(robot)
 
 ## 替换任务环境
 
-每个 case 可提供兼容的 `endpoint`。工作流仅调用公开目标/World API，不向 Agent 传递私有配置。
-没有外部 endpoint 时，本仓库通过私有配置启动已有的 Rod Lift World。
+配置的 `endpoints.target` 指向同一个兼容机器人/World 服务，不向 Agent 传递私有配置。
+World 服务从独立私有配置构建单杆或三杆场景；替换环境只需提供兼容 Target 和任务预测适配器。
 其他任务需要自己的感知和成功判定适配器，通用 Physic prompt、schema 和工作流无需修改。
 
-分阶段和批量 World 流程将估计交给策略消费者；`ActiveLoop` 单实例模式另外重放拟合证据、提交 Simulator 参数并检查新动作预测。
-`run --cases` 当前检验的是实测反馈下的共享程序闭环，不包含独立的预测 Simulator 更新/验证；不能用其 World 成功替代该项验证。
+单次诊断将测量交给指定消费者；唯一的 `ActiveLoop` 自动重放拟合证据、提交 Simulator 参数并检查新动作预测。
 任务候选的有限次成功执行仍不能替代模型预测能力的独立验证。

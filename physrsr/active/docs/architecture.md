@@ -3,22 +3,22 @@
 `python -m physrsr run --config ... --out <实验名>` 使用 `workflows/loop.py:ActiveLoop` 自动调度。
 默认合同是 `physrsr.robot.v2`。从任务和视觉输入直接分析物理不确定性、编写 Probe。
 首轮不生成 CaP，不需要已知物理模型，也不以未辨识的 Simulator 预测指导首轮动作。
-`identification design/probe/synthesize/evaluate/redesign/revise-task` 保留为分阶段检查和重放入口；自动运行不需要手动选阶段。
+`workflows/` 只保留 `loop.py`；单次显式诊断位于 `tools/stages.py`，使用 `debug` 命令，不管理实验轮次或停止判断。
 
 ## 实际代码链
 
 ```text
-任务、视觉 API 的姿态/几何输出 → physic.assess_task → physic.design_identification
-  → target.execute_probe → 每个实例独立保留的实测估计
-  → grounded model / first shared task candidate
+任务、视觉 API 的姿态/几何输出 → physic.assess_task → physic.design_probe
+  → target.execute_probe → 同一 World 内按 object_id 保留实测估计
+  → 整场景模型 / 一份完整任务候选
   → physic.assess_task
-      ├─ revise_policy → agent.synthesize_identified_policy → sim.evaluate
-      ├─ repair_probe → physic.design_identification → 仅冻结修复源码
+      ├─ revise_policy → agent.synthesize_policy → sim.evaluate
+      ├─ repair_probe → physic.design_probe → 仅冻结修复源码
       ├─ execute_probe → 显式执行已冻结源码
-      ├─ resume_probe → 同源码、同实例的已确认断点 → 继续试验
-      ├─ probe → physic.design_identification → sim.predict_probe
+      ├─ resume_probe → 同源码、同 World 的已确认断点 → 继续试验
+      ├─ probe → physic.design_probe → sim.predict_probe
       │          → 收益/风险/成本检查 → target.execute_probe
-      │          → 估计与实测观测 → physic.revise_predictive_model
+      │          → 估计与实测观测 → physic.revise_physical_model
       │          → 重放全部拟合交互 → sim.update_model
       │          → target.update_identification → sim.evaluate
       │          → 共享 policy 修订 → sim.evaluate
@@ -27,22 +27,27 @@
   ← 根据更新后的证据进入下一轮 physic.assess_task
 ```
 
-`sim.configure` 只初始化模型会话；单实例模式在已有真实辨识证据后才创建模型并预测。
-`--cases` 模式复用共享 Probe、实例记忆、共享 CaP 合成和 World 评估链，依据实测失败自动修订。
-此分支不调用预测 Simulator 的模型更新与独立验证；`final_cap/` 表示全部配置的功能验收，区别于单实例 `final/` 的模型停止合同。
+`run` 始终进入同一个 `ActiveLoop`，只连接一个 World 和一个预测模型会话。
+三个长条属于该 World 的三个对象，不是三个独立实例；观测、记忆及预测接口见 [场景合同](single_world.md)。
+`sim.configure` 只初始化模型会话；已有真实辨识证据后才创建模型并预测。
+`run --cases` 会在读取文件或调用服务前报错，不再隐式切换算法。
+旧 v1、多 World 自动闭环及其 CLI 已删除，不再保留导入兼容壳；历史实验产物不改写。
 Physic Agent 接收公共语义目标、几何、预测失败、真实交互和本体信息，不接收 benchmark ID 或私有 World 参数。
 第一个任务候选根据实测辨识结果生成。任务名称不用于调度器或 Physic prompt 分支。
+
+Agent 接口、阶段 Schema 与移除入口见 [Agent 合同](agent_contracts.md)。
 
 ## 代码职责与 API
 
 | 组件 | 代码与调用 |
 | --- | --- |
-| 自动调度、预算、停止 | `workflows/loop.py` |
-| 历史 task-only 对照生成 | `workflows/initial_cap.py` → `agent.generate_initial_cap`，不是闭环起点 |
-| 多实例共享程序闭环 | `workflows/batch.py` → `workflows/scoped_loop.py`，调用相同 Physic/Coding/目标 API |
+| 自动调度、预算、停止 | `workflows/loop.py`，目录中唯一工作流 |
+| 单次生成/执行诊断 | `tools/stages.py`，见 [debug](debug.md) |
 | 逐实例证据、交互决策理由、断点 | `core/exploration.py`，细节见 [实验调度合同](exploration.md) |
-| 物理分析、Probe、模型修订 | `agents/physic.py` → `physic.assess_task / design_identification / revise_predictive_model` |
-| policy 修订 | `agents/coding.py` → `agent.synthesize_identified_policy` |
+| 物理分析、Probe、模型修订 | `agents/physic.py` → `physic.assess_task / design_probe / revise_physical_model` |
+| policy 生成/修订 | `agents/coding.py` → `agent.synthesize_policy` |
+| 公共推理及 Schema 校验 | `agents/base.py` |
+| 源码及证据合同 | `core/programs.py`、`core/evidence.py` |
 | 模型会话和任务路由 | `runtime/predictive.py` → `sim.configure / predict_probe / evaluate / update_model` |
 | 任务接口与选择 | `tasks/base.py`、`tasks/registry.py` |
 | Rod Lift 专用规则和参数 | `tasks/rod_lift.py` |
@@ -52,7 +57,7 @@ Physic Agent 接收公共语义目标、几何、预测失败、真实交互和�
 | 同一源码执行与冻结 | `core/policy.py` |
 
 `sim.update_model` 提交实际物理参数、权重和程序可读辨识记忆，不只是修改 `belief.json`。
-后续 Simulator 实例化使用新参数，程序通过同一个 `robot.describe()['identification']` 读取当前实例记忆。
+后续 Simulator 实例化使用新参数，程序通过同一个 `robot.describe()['identification']` 读取当前 World 的对象记忆。
 所有预测带 `session_id + model_version`，旧版本请求会被拒绝。
 参数 schema 来自任务适配器声明的名称、单位、坐标系与范围，不固定为 COM 或摩擦。
 提交前，宿主用原 Probe 源码、交互发生时的记忆和全部拟合观测检查新模型；解释不了就不提交。
@@ -75,13 +80,8 @@ src/cap-x/.venv/bin/python -m physrsr serve-measured-world --private-config /pat
 src/cap-x/.venv/bin/python -m physrsr run \
   --config physrsr/active/examples/rod_lift.json --out active_loop_new
 
-# 显式执行多实例 sim2sim 共享策略验收；私有参数仅由 World 服务读取。
-src/cap-x/.venv/bin/python -m physrsr run \
-  --config physrsr/active/examples/rod_lift.json --cases /path/to/evaluator_only_cases.json \
-  --out shared_probe_first_new
-
-# 单实例 run 冻结后，用 execute 显式执行最终任务；--cases 自身会在私有 World 评估候选。
-# execute 也支持批量入口验收后生成的 final_cap；切换 URL 即切换仿真/真机。
+# run 冻结后，用 execute 在同一个 World 显式执行完整任务。
+# execute 也可读取已有历史冻结产物；这不恢复旧调度器。
 src/cap-x/.venv/bin/python -m physrsr execute \
   --bundle /data/wjt/PhyAgent-RSR/output/active_loop_new/final \
   --target-url http://127.0.0.1:8123
@@ -109,7 +109,8 @@ src/cap-x/.venv/bin/python -m physrsr serve-simulator \
 任务预测返回 `success/risk/margin/duration_s/observations`；Probe 返回 v2 运行观测与风险。
 任务几何、物理绑定和原始成功谓词由适配器维护，机器人合同与真机保持一致。
 新任务不需要修改调度器、Physic prompt 或模型参数 schema。
-内置物理环境仍为 Rod Lift；其他任务须提供实际 Simulator/目标适配器，接口测试不代表已完成其物理环境。
+内置物理环境包括单杆 `rod_lift` 和三杆共存的 `three_rod_lift_return`；三杆任务在一个环境中记录各杆的抓持、保持与放回状态，整体评分由 `tasks/rod_scene_env.py` 实现。
+其他任务仍须提供实际 Simulator/目标适配器。
 
 ## 停止、版本与产物
 
@@ -123,5 +124,5 @@ AST 检查排除同源码/注释改名；它不能形式化证明动作的动力
 Probe 的分析、prompt、源码、预测、执行观测与 belief 保存在同一个 `active_probe_n/` 内。
 所有产物位于 `/data/wjt/PhyAgent-RSR/output/`；有效历史归档也已迁入，冻结文件保留原文。
 
-旧 v1 状态机保留在 `workflows/legacy_loop.py`；旧预测服务显式使用 `serve-legacy-simulator`。
-历史首版 `smoke` 对照继续使用原协议。模型集合停止规则不是实际环境成功率的置信保证。
+旧 v1 状态机已删除；`serve-legacy-simulator` 仅保留旧 API 服务能力，供显式单阶段工具使用。
+历史固定实验工具已从当前包删除，已有冻结对照保留。模型集合停止规则不是实际环境成功率的置信保证。

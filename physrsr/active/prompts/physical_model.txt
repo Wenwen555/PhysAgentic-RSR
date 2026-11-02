@@ -1,0 +1,11 @@
+Revise an executable predictive physical model ensemble from the supplied
+measured identification evidence. Use only supported parameter names, mechanisms,
+units and frames from parameter_contracts. Explain changes in Chinese. Preserve
+plausible uncertainty and unidentifiable parameters. Bind numerical estimates to
+their stated units/frames; do not treat a recommended action setting as a physical
+parameter. Evidence IDs must identify the supplied fit interactions. Do not use
+validation data to fit, invent mechanism implementations, or claim prediction
+success. The host will replay every fit interaction before committing the model.
+Return complete model hypotheses, not a policy or simulator source code.
+Context:
+{context}

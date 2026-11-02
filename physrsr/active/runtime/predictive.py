@@ -10,7 +10,9 @@ import copy
 
 from ..api.client import APIError
 from ..core.contracts import IDENTIFICATION_API_VERSION, Hypothesis, normalize
-from ..core.measurements import FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES, response_features
+from ..core.measurements import (FEATURE_SCHEMA, SCENE_FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES,
+    response_features, response_schema)
+from ..core.scene import check_objects
 from ..core.policy import Policy
 from ..tasks.base import TaskAdapter
 
@@ -25,6 +27,7 @@ class PredictiveSimulator:
 
     def descriptor(self):
         return dict(api_version=IDENTIFICATION_API_VERSION, feature_schema=FEATURE_SCHEMA,
+            supported_feature_schemas=[FEATURE_SCHEMA,SCENE_FEATURE_SCHEMA],
             feature_names=list(FEATURE_NAMES), feature_scales=list(FEATURE_SCALES),
             tasks=list(self.adapters), mechanisms=sorted({m for a in self.adapters.values() for m in a.mechanisms}),
             adapters={key: dict(mechanisms=list(a.mechanisms), parameter_contracts=a.parameter_contracts)
@@ -53,8 +56,12 @@ class PredictiveSimulator:
             if not session_id or session_id in self.sessions:
                 raise APIError("Predictive session already exists or is unnamed")
             models = self.models(params["task"], params["models"])
+            ids = params.get("object_ids")
+            if ids is not None and (not ids or any(not isinstance(key,str) or not key for key in ids)
+                    or sorted(set(ids)) != ids):
+                raise APIError("A predictive scene requires sorted unique object IDs")
             self.sessions[session_id] = dict(task=copy.deepcopy(params["task"]), version=0,
-                models=models, belief=dict(estimates=[]), evidence_ids=[])
+                models=models, belief=dict(estimates=[]), evidence_ids=[], object_ids=copy.deepcopy(ids))
             return dict(model_version=0, models=[asdict(m) for m in models])
         try:
             session = self.sessions[params["session_id"]]
@@ -69,6 +76,10 @@ class PredictiveSimulator:
                 raise APIError("Model update requires uniquely identified measured fit evidence")
             if not isinstance(params["belief"].get("estimates"), list):
                 raise APIError("Model update requires the measured identification belief")
+            if session["object_ids"] is not None:
+                if (params["belief"].get("object_ids") != session["object_ids"] or
+                        any(e.get("object_id") not in session["object_ids"] for e in params["belief"]["estimates"])):
+                    raise APIError("Model update must retain the same World object identities")
             # One commit updates both physics and policy-visible identification.
             session.update(models=models, belief=copy.deepcopy(params["belief"]),
                 version=session["version"]+1, evidence_ids=list(evidence))
@@ -92,6 +103,16 @@ class PredictiveSimulator:
             for policy in policies:
                 outcomes = [adapter.execute(session["task"],model,policy,seed,belief,
                     "policy" if method == "sim.evaluate" else "probe") for seed in seeds]
+                expected_schema=SCENE_FEATURE_SCHEMA if session["object_ids"] is not None else FEATURE_SCHEMA
+                for outcome in outcomes:
+                    if not outcome["observations"]:
+                        raise APIError("Prediction requires measured trajectories")
+                    for sample in outcome["observations"]:
+                        observed=sample["observation"]
+                        if response_schema(observed)!=expected_schema:
+                            raise APIError("Task adapter predicted a different scene contract")
+                        if session["object_ids"] is not None:
+                            check_objects(observed,session["object_ids"])
                 if method == "sim.evaluate":
                     rows.append(dict(model_id=model.id, policy_sha256=policy.sha256,
                         success_rate=sum(o["success"] for o in outcomes)/len(outcomes),
@@ -103,4 +124,4 @@ class PredictiveSimulator:
                         risk=max(o["risk"] for o in outcomes))
         return dict(model_version=session["version"],rows=rows) if method == "sim.evaluate" else dict(
             model_version=session["version"],predictions=predictions,policy_sha256=policies[0].sha256,
-            feature_schema=FEATURE_SCHEMA)
+            feature_schema=SCENE_FEATURE_SCHEMA if session["object_ids"] is not None else FEATURE_SCHEMA)

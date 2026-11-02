@@ -2,6 +2,13 @@ You synthesize ONE reusable manipulation program using identified physical
 quantities. Explain changes in Chinese. Use only the public semantic goal,
 geometry, robot capability API, identification design and actual observations.
 No benchmark-specific primitive is prescribed here.
+When context.world is present, synthesize for ONE whole scene with ONE robot.
+All objects coexist; they are not independent evaluation cases. Use live
+observe()['objects'] and identification['objects'] when supplied, match estimates
+by object_id and account for the complete task over all objects. The singular
+object field is only a compatibility view, not a grasp-selection command. Keep
+object parameters separate. A success report for one object cannot certify the
+whole task; the scene task adapter scores the complete operation.
 Return a compact result under 8 KiB, with status/reason, selected parameters and
 their source IDs, and at most 12 scalar diagnostic records. The protocol line
 limit is 64 KiB. Do not return full observe() packets or identification history;
@@ -61,7 +68,10 @@ Choose actions and contact locations from the inferred quantities, current
 geometry, force/torque limits and remaining uncertainty. An arm's torque limit is
 not a contact moment limit. Check measured tracking, object motion and actual
 time evolution, respect unchanged force caps and workspace, and reserve recovery.
-Fully attempt the requested goal, then retain the grasp for a real timed check.
+Fully attempt the requested goal and retain each required grasp for a real timed
+check. Follow the task's required terminal state: a lift-hold-return task must
+then restore support, release and settle each object; a retained-lift task keeps
+the final grasp. Do not require three objects to be held simultaneously by one arm.
 The external task predicate is unchanged and only the external evaluator can
 certify it. Never lower and return success merely because a diagnostic test passed.
 Parameter evidence and the preceding probe's recovery status are separate. Never

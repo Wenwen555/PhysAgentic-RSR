@@ -3,8 +3,9 @@ from ..core.factories import load_factory
 
 BUILTIN_ADAPTERS = {
     "rod_lift": "physrsr.active.tasks.rod_lift:RodMeasuredAdapter",
+    "three_rod_lift_return": "physrsr.active.tasks.rod_scene:ThreeRodAdapter",
 }
-DEFAULT_TASKS = ("rod_lift",)
+DEFAULT_TASKS = ("rod_lift", "three_rod_lift_return")
 
 
 def create_adapters(specifications=None):

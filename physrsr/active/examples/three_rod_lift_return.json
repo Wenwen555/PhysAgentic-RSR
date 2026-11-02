@@ -1,0 +1,58 @@
+{
+  "task": {
+    "id": "three_rod_lift_return",
+    "instruction": "在同一个场景中逐根抓取三根长条，抬升并近似水平稳定保持至少 0.5 秒，再分别放回各自原始区域并松开夹爪。三根全部完成才算成功。",
+    "success": {
+      "lift_above_table_m": 0.04,
+      "max_abs_axis_z": 0.25,
+      "hold_duration_s": 0.5,
+      "return_stable_duration_s": 0.25,
+      "return_xy_tolerance_m": 0.04,
+      "support_tolerance_m": 0.003,
+      "max_return_speed_m_s": 0.01,
+      "max_return_angular_speed_rad_s": 0.05,
+      "require_all_objects": true
+    },
+    "constraints": {
+      "grip_force_per_finger_n": 2.0,
+      "nominal_rise_m": 0.1
+    }
+  },
+  "loop": {
+    "max_rounds": 12,
+    "max_probes": 8,
+    "max_probe_cost": 900.0,
+    "min_validation_probes": 1,
+    "reliability": 0.95,
+    "support_mass": 0.99,
+    "model_seeds": [
+      7201,
+      7202
+    ],
+    "max_model_revisions": 4,
+    "feature_scales": [
+      0.005,
+      0.005,
+      0.005,
+      0.05,
+      0.005,
+      0.05,
+      0.005,
+      0.005,
+      0.05,
+      0.005,
+      0.05,
+      0.05,
+      0.05,
+      0.005,
+      0.005,
+      0.005
+    ]
+  },
+  "endpoints": {
+    "simulator": "http://127.0.0.1:8121",
+    "agent": "http://127.0.0.1:8122",
+    "target": "http://127.0.0.1:8123",
+    "physic": "http://127.0.0.1:8124"
+  }
+}

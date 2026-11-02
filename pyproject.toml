@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Task-driven physical identification and shared robot policies"
 readme = "physrsr/README.md"
 requires-python = ">=3.10,<3.13"
-dependencies = ["capx>=0.1.0"]
+dependencies = ["capx>=0.1.0", "jsonschema>=4.18,<5"]
 
 [project.scripts]
 physrsr = "physrsr.active.__main__:main"

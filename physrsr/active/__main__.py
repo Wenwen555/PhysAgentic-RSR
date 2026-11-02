@@ -7,7 +7,7 @@ from pathlib import Path
 from physrsr.paths import OUTPUT_ROOT, output_path
 
 from .api.client import HTTPClient
-from .core.contracts import read_config, IDENTIFICATION_API_VERSION
+from .core.contracts import read_config
 from .core.policy import Policy
 
 
@@ -16,46 +16,19 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("validate-config", help="Offline only; no model/robot/API calls")
     check.add_argument("config", type=Path)
-    run = commands.add_parser("run", help="Probe-first identification and revision; --cases evaluates one shared policy in private Worlds")
+    run = commands.add_parser("run", help="One World, one predictive ActiveLoop; all scene objects share this loop")
     run.add_argument("--config", type=Path, required=True)
     run.add_argument("--out", type=output_path, required=True, metavar="RUN")
-    run.add_argument("--cases",type=Path,help="Private independent World cases; probe first, one shared task policy")
-    run.add_argument("--resume",action="store_true",help="Resume the saved instance-scoped batch controller; requires --cases")
-    initial = commands.add_parser("author-initial", help="Legacy task-only CaP authoring; not the default loop entry")
-    initial.add_argument("--config", type=Path, required=True)
-    initial.add_argument("--out", type=output_path, required=True, metavar="RUN")
-    probe = commands.add_parser("author-probe", help="Organize archived initial-CaP evidence and author an active probe without executing it")
-    probe.add_argument("--experiment", type=output_path, required=True, metavar="RUN")
-    probe.add_argument("--round", type=int, default=1)
-    probe.add_argument("--port", type=int, default=18124)
-    identification = commands.add_parser("identification", help="Measured, task-independent physical identification workflow")
-    identification.add_argument("stage", choices=("design", "redesign", "probe", "synthesize", "revise-task", "evaluate"))
-    identification.add_argument("--experiment", type=output_path, required=True, metavar="RUN")
-    identification.add_argument("--public-context", type=Path)
-    identification.add_argument("--private-cases", type=Path)
-    identification.add_argument("--initial-source", type=Path)
-    identification.add_argument("--round", type=int, default=1)
-    identification.add_argument("--review", type=Path)
-    identification.add_argument("--previous-round", type=int)
-    identification.add_argument("--instances",nargs="+",help="Execute only these independent instance IDs")
-    identification.add_argument("--resume",action="store_true",help="Resume the same frozen Probe from safe checkpoints, or retain completed task evaluations")
-    identification.add_argument("--repair",action="store_true",help="For redesign: code repair only; never executes the repaired Probe")
-    for name, help_text, default_port in (
-        ("probe-world", "Execute the frozen probe in the two archived failing Worlds", 18123),
-        ("revise-cap", "Make one shared CaP revision from archived World probe evidence", 18122),
-        ("compare-caps", "Re-execute initial and revised CaPs in paired failing Worlds", 18123),
-    ):
-        command = commands.add_parser(name, help=help_text)
-        command.add_argument("--experiment", type=output_path, required=True, metavar="RUN")
-        command.add_argument("--round", type=int, default=1)
-        command.add_argument("--port", type=int, default=default_port)
-    smoke = commands.add_parser("smoke", help="Execute one policy on three CoM configurations at fixed mass")
-    smoke.add_argument("--out", type=output_path, required=True, metavar="RUN")
-    smoke.add_argument("--initial-cap", type=Path)
-    smoke.add_argument("--mass-kg", type=float, default=.27)
-    smoke.add_argument("--seed", type=int, default=19001)
-    smoke.add_argument("--friction", type=float, default=1.5)
-    smoke.add_argument("--base-port", type=int, default=18121)
+    run.add_argument("--cases", type=Path, help=argparse.SUPPRESS)
+    run.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)
+    debug = commands.add_parser("debug", help="Explicitly author or execute one program in one World; never certify a task")
+    debug.add_argument("action",choices=("design-probe","repair-probe","synthesize-policy","execute-probe","execute-policy"))
+    debug.add_argument("--config",type=Path,required=True)
+    debug.add_argument("--out",type=output_path,required=True,metavar="RUN")
+    debug.add_argument("--context",type=Path,help="Public Agent context for authoring")
+    debug.add_argument("--bundle",type=Path,help="Frozen debug bundle to repair/execute, or previous policy to revise")
+    debug.add_argument("--belief",type=Path,help="Measured belief for execution, including acknowledged Probe checkpoints")
+    debug.add_argument("--resume",action="store_true",help="Continue the identical Probe from a safe checkpoint")
     execute_cmd = commands.add_parser("execute", help="Explicitly execute the frozen identical policy on a target API")
     execute_cmd.add_argument("--bundle", type=Path, required=True)
     execute_cmd.add_argument("--target-url", required=True)
@@ -69,91 +42,54 @@ def main(argv=None):
             command.add_argument("--robot-url", required=True, help="Shared robot/episode API, backed by measured hardware or simulation")
         if name in ("serve-sim-target", "serve-world", "serve-measured-world"):
             command.add_argument("--private-config", type=Path, required=True)
+        if name == "serve-measured-world":
+            command.add_argument("--task",choices=("rod_lift","three_rod_lift_return"),default="rod_lift",
+                help="Physical World task; three rods coexist in one scene for three_rod_lift_return")
         if name == "serve-simulator":
             command.add_argument("--adapter",action="append",default=[],metavar="MODULE:FACTORY",
                 help="Register a built-in task name or trusted MODULE:FACTORY; repeat for additional tasks")
         if name == "serve-measured-target":
             command.add_argument("--factory",required=True,help="Trusted MODULE:FACTORY returning a measured robot API adapter")
     args = parser.parse_args(argv)
-    if args.command == "identification":
-        from .workflows.identification import (author_identification, redesign_identification, execute_identification,
-            synthesize_identified_policy, revise_identified_task, evaluate_identified_policy)
-        if args.repair and args.stage!="redesign":parser.error("--repair is only for identification redesign")
-        if args.resume and args.stage not in ("probe","evaluate"):parser.error("--resume is only for probe/evaluate")
-        if args.instances and args.stage not in ("probe","evaluate"):parser.error("--instances is only for probe/evaluate")
-        if args.stage == "design":
-            if not all((args.public_context, args.private_cases)):
-                parser.error("identification design requires --public-context and --private-cases")
-            result = author_identification(args.experiment, public_context=json.loads(args.public_context.read_text()),
-                private_cases=json.loads(args.private_cases.read_text()), initial_source=args.initial_source)
-        elif args.stage == "redesign":
-            if args.review is None:
-                parser.error("identification redesign requires --review with public design findings")
-            review=json.loads(args.review.read_text())
-            if args.repair:review=dict(review,mode="repair_probe")
-            result = redesign_identification(args.experiment,review,round_index=args.round,previous_round=args.previous_round)
-        elif args.stage == "revise-task":
-            if args.round < 2:
-                parser.error("revise-task requires --round >= 2")
-            result = revise_identified_task(args.experiment,
-                previous_round=args.previous_round or args.round-1, round_index=args.round)
+    if args.command == "run" and args.cases is not None:
+        parser.error("run uses one World and a predictive Simulator. Put all objects in the same target scene; --cases is no longer supported")
+    if args.command == "run" and args.resume:
+        parser.error("run does not support process-level --resume. Same-source Probe continuation inside ActiveLoop uses resume_probe")
+    if args.command == "debug":
+        from .tools.stages import author_program, execute_program
+        authoring=args.action in ("design-probe","repair-probe","synthesize-policy")
+        if authoring and args.context is None:parser.error("Debug authoring requires --context with public evidence")
+        if not authoring and args.context is not None:parser.error("Execution uses the frozen bundle, not --context")
+        if args.action in ("repair-probe","execute-probe","execute-policy") and args.bundle is None:
+            parser.error("Repair/execution requires --bundle")
+        if args.action=="design-probe" and args.bundle is not None:parser.error("Use repair-probe to revise an existing Probe")
+        if authoring and args.belief is not None:parser.error("--belief is only for execution")
+        if args.resume and args.action!="execute-probe":parser.error("--resume is only for execute-probe")
+        payload=json.loads(args.config.read_text())
+        task,_,_=read_config(payload)
+        kind="probe" if args.action.endswith("probe") else "policy"
+        endpoint_name=("physic" if kind=="probe" else "agent") if authoring else "target"
+        if endpoint_name not in payload.get("endpoints",{}):parser.error(f"Debug action requires {endpoint_name} endpoint")
+        endpoint=HTTPClient(payload["endpoints"][endpoint_name])
+        if authoring:
+            result=author_program(args.out,kind=kind,task=task,context=json.loads(args.context.read_text()),
+                agent=endpoint,previous=args.bundle)
         else:
-            kwargs=dict(round_index=args.round)
-            if args.stage in ("probe","evaluate"):kwargs.update(instance_ids=args.instances,resume=args.resume)
-            result = {"probe": execute_identification, "synthesize": synthesize_identified_policy,
-                "evaluate": evaluate_identified_policy}[args.stage](args.experiment,**kwargs)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    if args.command in ("probe-world", "revise-cap", "compare-caps"):
-        from .workflows.probe_revision import execute_world_probes, revise_cap_once, evaluate_revision_pair
-        workflow = {"probe-world": execute_world_probes, "revise-cap": revise_cap_once,
-            "compare-caps": evaluate_revision_pair}[args.command]
-        result = workflow(args.experiment, round_index=args.round, port=args.port)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    if args.command == "smoke":
-        from .workflows.smoke import run
-        run(args.out, initial_cap=args.initial_cap, mass_kg=args.mass_kg, seed=args.seed,
-            friction=args.friction, base_port=args.base_port)
-        return 0
-    if args.command == "author-probe":
-        from .workflows.probe_authoring import author_active_probe
-        result = author_active_probe(args.experiment, round_index=args.round, port=args.port)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    if args.command in ("validate-config", "run", "author-initial"):
+            result=execute_program(args.out,kind=kind,bundle=args.bundle,target=endpoint,
+                belief=json.loads(args.belief.read_text()) if args.belief else None,resume=args.resume)
+        print(json.dumps(result,ensure_ascii=False,indent=2))
+        return 0 if authoring or (result["status"]=="completed" and
+            result.get("program_status") not in ("recovery_failed","program_error","execution_error") and
+            (result.get("task_result") is None or result["task_result"]["success"])) else 2
+    if args.command in ("validate-config", "run"):
         payload = json.loads(args.config.read_text())
         task, config, models = read_config(payload)
-        if args.command=="run" and args.cases is not None:
-            from .workflows.batch import run_probe_first_batch,continue_probe_first,ExplorationBudget
-            cases=json.loads(args.cases.read_text())
-            budget=ExplorationBudget(max_probe_cost_s=config.max_probe_cost,max_probe_executions=config.max_probes,
-                probe_cost_weight=config.probe_cost_weight,min_net_value=config.min_net_value)
-            if args.resume:
-                root=args.out/"run"
-                if json.loads((root/"evaluator_only_cases.json").read_text())!=cases:
-                    raise ValueError("Resume cannot change the independent World instances")
-                from .core.identification import public_goal
-                if json.loads((root/"active_probe_1/context.json").read_text())["goal"]!=public_goal(task.public()):
-                    raise ValueError("Resume cannot change the task goal")
-                result=continue_probe_first(root,max_iterations=config.max_rounds,budget=budget)
-            else:result=run_probe_first_batch(args.out,task,cases,max_iterations=config.max_rounds,budget=budget)
-            print(json.dumps(result,ensure_ascii=False,indent=2))
-            return 0 if result["status"]=="accepted" else 2
-        if args.command=="run" and args.resume:parser.error("run --resume requires --cases")
-        names = ("agent","physic","simulator","target") if args.command in ("run","validate-config") else ("agent","target")
-        if any(name not in payload["endpoints"] for name in names):
+        names = ("agent","physic","simulator","target")
+        if any(name not in payload.get("endpoints", {}) for name in names):
             parser.error("Unified loop requires agent, physic, simulator and v2 target endpoints")
         endpoints = {name: HTTPClient(payload["endpoints"][name]) for name in names}
         if args.command == "validate-config":
             print(json.dumps(dict(valid=True, task=task.id, models=len(models), external_calls=0), indent=2))
-            return 0
-        if args.command == "author-initial":
-            from .workflows.initial_cap import generate_initial_cap
-            policy = generate_initial_cap(task, target=endpoints["target"], agent=endpoints["agent"], output=args.out,
-                api_version=IDENTIFICATION_API_VERSION)
-            print(json.dumps(dict(status="authored", sha256=policy.sha256,
-                policy=str(args.out / "bundle/policy.py"), simulator_executed=False), indent=2))
             return 0
         from .workflows.loop import ActiveLoop
         result = ActiveLoop(task, config, models, output=args.out, **endpoints).run()
@@ -186,8 +122,12 @@ def main(argv=None):
         from .agents.physic import PhysicService
         service = PhysicService(args.out)
     elif args.command == "serve-measured-world":
-        from .tasks.rod_lift_world import InstrumentedWorld
-        service = InstrumentedWorld(json.loads(args.private_config.read_text()))
+        if args.task == "three_rod_lift_return":
+            from .tasks.rod_scene_world import ThreeRodWorld
+            service = ThreeRodWorld(json.loads(args.private_config.read_text()))
+        else:
+            from .tasks.rod_lift_world import InstrumentedWorld
+            service = InstrumentedWorld(json.loads(args.private_config.read_text()))
     elif args.command == "serve-measured-target":
         from .core.factories import load_factory
         from .runtime.instrumented import InstrumentedTarget

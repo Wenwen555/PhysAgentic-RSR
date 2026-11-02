@@ -11,13 +11,19 @@ import uuid
 import json
 
 from ..core.artifacts import save_json
+from ..core.evidence import evidence_samples
+from ..core.belief import merge_identification
 from ..core.contracts import IDENTIFICATION_API_VERSION, Hypothesis, normalize, finite
 from ..core.identification import ROBOT_API, DEFAULT_BUDGET, public_goal
 from ..core.exploration import CONTRACT,PHYSICAL_ACTIONS,PAUSED_STATUSES,resumable,validate_plan
-from ..core.measurements import FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES, response_features
+from ..core.measurements import (FEATURE_SCHEMA, SCENE_FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES,
+    response_features, response_schema)
+from ..core.scene import object_ids, check_objects, visual_observation, supported
 from ..core.policy import Policy, PolicyStore
 from ..core.reasoning import Probe, assess, posterior, predictive_error, feature_error, probe_value, validate_predictions
-from ..agents.identification import source_policy, task_candidate, design_prompt
+from ..core.programs import source_policy, task_candidate
+from ..agents.physic import DESIGN_SCHEMA, probe_prompt, validate_probe_design
+from ..agents.coding import SYNTHESIS_SCHEMA, synthesis_prompt
 from ..runtime.instrumented import observation
 
 
@@ -47,6 +53,8 @@ class ActiveLoop:
         self.assessment, self.rows = None, []
         self.needs_identification = False
         self.sim_configured = False
+        self.scene_object_ids = None
+        self.feature_schema = FEATURE_SCHEMA
         self.write("config.json",dict(task=task.public(IDENTIFICATION_API_VERSION),loop=asdict(self.cfg),
             models=self.model_json(),session_id=self.session_id))
 
@@ -86,16 +94,7 @@ class ActiveLoop:
         self.write(destination,dict(model_version=self.model_version,assessment=self.assessment,rows=self.rows))
         return candidates
 
-    @staticmethod
-    def evidence_samples(samples,limit=10):
-        """Keep endpoints, elapsed phases and load extrema; archive stays complete."""
-        if len(samples)<=limit:
-            return samples
-        indices={0,len(samples)-1,*[i*(len(samples)-1)//(limit-3) for i in range(limit-2)]}
-        for channel in ("force_n","torque_nm"):
-            indices.add(max(range(len(samples)),key=lambda i:sum(
-                x*x for x in samples[i]["observation"]["wrench"][channel])))
-        return [samples[i] for i in sorted(indices)]
+    evidence_samples = staticmethod(evidence_samples)
 
     def prediction_feedback(self):
         scores=[{k:v for k,v in row.items() if k!="feedback"} for row in self.rows]
@@ -112,14 +111,17 @@ class ActiveLoop:
         """Scientist gets a semantic goal and measured/predictive evidence, no task ID."""
         self.capabilities=self.call(self.target,"target.describe",{})
         current=observation(self.call(self.target,"target.observe",{}))
+        self.check_scene(current)
         if not self.probe_data:
-            current={key:current[key] for key in ("time_s","coordinate_frame","object","tcp")}
+            current=visual_observation(current)
         evidence={"task_goal","robot_capabilities","initial_visual"}
         evidence.update(d["result"]["evidence_id"] for d in self.probe_data)
         evidence.update(v["evidence_id"] for v in self.validation_data)
         if self.rows:evidence.add(f"prediction:v{self.model_version}")
         context=dict(goal=public_goal(self.task.public(IDENTIFICATION_API_VERSION)),robot_api=ROBOT_API,
             decision_contract=CONTRACT,predictive_validation=True,
+            world=dict(id="current",object_ids=self.scene_object_ids,one_robot=True,
+                shared_scene=True,independent_instances=False),
             instances=[dict(episode_id="current",retained_identification=self.belief,
                 available_evidence_ids=sorted(evidence),
                 latest_execution=(dict(status=self.probe_data[-1]["result"]["status"],
@@ -164,12 +166,11 @@ class ActiveLoop:
         folder.mkdir()
         payload = dict(context,previous_task_candidate=parent.source if parent else None,
             prediction_feedback=self.prediction_feedback(),execution_protocol=dict(one_shared_policy=True,
-                current_instance_estimates_from_api=True,target_task_executed=False))
+                one_world=True,object_estimates_from_api=True,target_task_executed=False))
         self.write(stage+"/context.json",payload)
-        from ..core.paths import PROMPTS_ROOT
-        (folder/"prompt.txt").write_text((PROMPTS_ROOT/"identified_policy.txt").read_text().format(
-            context=json.dumps(payload,ensure_ascii=False,allow_nan=False)))
-        answer = self.call(self.agent,"agent.synthesize_identified_policy",payload)
+        self.write(stage+"/schema.json",SYNTHESIS_SCHEMA)
+        (folder/"prompt.txt").write_text(synthesis_prompt(payload))
+        answer = self.call(self.agent,"agent.synthesize_policy",payload)
         self.write(stage+"/response.json",answer)
         checked = task_candidate(answer["code"])
         policy = Policy(checked.source,answer["rationale"],parent.sha256 if parent else None,IDENTIFICATION_API_VERSION)
@@ -182,7 +183,7 @@ class ActiveLoop:
     def predict(self, probe, **prospective):
         response = self.checked_version(self.call(self.simulator,"sim.predict_probe",dict(
             **self.sim_params(),probe=probe.wire(),**prospective)))
-        if response.get("feature_schema") != FEATURE_SCHEMA or response.get("policy_sha256") != probe.policy.sha256:
+        if response.get("feature_schema") != self.feature_schema or response.get("policy_sha256") != probe.policy.sha256:
             raise ValueError("Measured probe prediction contract mismatch")
         models = normalize([Hypothesis(**m) for m in prospective["models"]]) if "models" in prospective else self.models
         validate_predictions(response["predictions"],models,self.cfg.feature_scales)
@@ -194,6 +195,8 @@ class ActiveLoop:
             self.simulator_info=self.call(self.simulator,"sim.describe",{})
             if self.simulator_info.get("api_version")!=IDENTIFICATION_API_VERSION or self.simulator_info.get("feature_schema")!=FEATURE_SCHEMA:
                 raise ValueError("Predictive simulator must implement measured API v2")
+            if self.feature_schema not in self.simulator_info.get("supported_feature_schemas",[FEATURE_SCHEMA]):
+                raise ValueError("Predictive simulator does not support this World observation contract")
             self.adapter_info=self.simulator_info["adapters"][self.task.id]
         fit_ids = [d["result"]["evidence_id"] for d in self.fit_data]
         proposed = self.models
@@ -201,19 +204,26 @@ class ActiveLoop:
             if self.model_revisions >= self.cfg.max_model_revisions:
                 return False
             context = dict(goal=public_goal(self.task.public()),models=self.model_json(),
+                world=dict(id="current",object_ids=self.scene_object_ids),
+                feature_schema=self.feature_schema,
                 parameter_contracts=self.adapter_info["parameter_contracts"],belief=self.belief,
                 fit_evidence=[dict(evidence_id=d["result"]["evidence_id"],
                     program_return=d["result"].get("program_return"),features=d["result"]["features"])
                     for d in self.fit_data])
-            answer = self.call(self.physic,"physic.revise_predictive_model",context)
+            answer = self.call(self.physic,"physic.revise_physical_model",context)
             if not answer.get("evidence_ids") or set(answer["evidence_ids"]) != set(fit_ids):
                 raise ValueError("Predictive model revision cites unavailable fit evidence")
             proposed = normalize([Hypothesis(**m) for m in answer["models"]])
             self.model_revisions += 1
             self.write(f"models/revision_{self.model_revisions:03d}.json",dict(context=context,response=answer))
         if not self.sim_configured:
+            task=self.task.public(IDENTIFICATION_API_VERSION)
+            scene = {}
+            if self.feature_schema==SCENE_FEATURE_SCHEMA:
+                scene=dict(object_ids=self.scene_object_ids)
+                task=dict(task,scene=self.initial_visual)
             self.checked_version(self.call(self.simulator,"sim.configure",dict(session_id=self.session_id,
-                task=self.task.public(IDENTIFICATION_API_VERSION),models=[asdict(m) for m in proposed])))
+                task=task,models=[asdict(m) for m in proposed],**scene)))
             self.sim_configured=True
         # Validation measurements are deliberately absent from this fitting path.
         for datum in self.fit_data:
@@ -255,9 +265,10 @@ class ActiveLoop:
             if self.current_probe is None:raise ValueError("There is no Probe source to repair")
             context["previous_probe_source"]=self.current_probe.policy.source
         self.write(name+"/context.json",context)
-        (folder/"prompt.txt").write_text(design_prompt(context))
-        answer = self.call(self.physic,"physic.design_identification",context)
-        policy = source_policy(answer["code"])
+        self.write(name+"/schema.json",DESIGN_SCHEMA)
+        (folder/"prompt.txt").write_text(probe_prompt(context))
+        answer = self.call(self.physic,"physic.design_probe",context)
+        policy = validate_probe_design(answer,context)
         cost = max(finite(decision["estimated_probe_cost_s"]),.001)
         probe = Probe(name,policy,cost,tuple(answer["selected_factors"]),
             ";".join(answer["experimental_design"]["manipulated_variables"]),purpose)
@@ -330,8 +341,10 @@ class ActiveLoop:
         self.execution_attempts[name]=attempt
         self.write(name+"/"+destination+"/result.json",result)
         self.probe_count += 1
-        if result.get("feature_schema") != FEATURE_SCHEMA or result.get("policy_sha256") != policy.sha256:
+        if result.get("feature_schema") != self.feature_schema or result.get("policy_sha256") != policy.sha256:
             raise ValueError("Measured target response contract mismatch")
+        for sample in result["observations"]:
+            self.check_scene(sample["observation"])
         evidence = result.get("evidence_id")
         if not evidence or evidence in self.evidence_ids:
             raise ValueError("Repeated/missing measured evidence ID")
@@ -357,7 +370,6 @@ class ActiveLoop:
         belief_before=self.belief
         pending_belief = None
         if purpose=="fit":
-            from .identification import merge_identification
             structured=returned if isinstance(returned,dict) and isinstance(returned.get("estimates"),list) else dict(
                 status="program_error",reason=result.get("error"),estimates=[])
             pending_belief=merge_identification(self.belief,structured,source_probe=name,evidence_id=evidence,
@@ -371,7 +383,7 @@ class ActiveLoop:
             return "cost_unknown"
         if result["status"]=="program_error":return "program_error"
         if (result["status"] != "completed" or isinstance(returned,dict) and returned.get("status")=="recovery_failed"
-                or result["observations"][-1]["observation"]["object"]["support_clearance_m"] > .003):
+                or not supported(result["observations"][-1]["observation"])):
             return "recovery_failed"
         if self.spent > self.cfg.max_probe_cost:
             return "cost_budget_exhausted"
@@ -407,6 +419,7 @@ class ActiveLoop:
 
     def finish(self,status,reason):
         result = dict(status=status,reason=reason,model_version=self.model_version,models=self.model_json(),
+            world_count=1,object_ids=self.scene_object_ids,feature_schema=self.feature_schema,
             probe_count=self.probe_count,probe_cost=self.spent,probe_cost_complete=self.cost_complete,assessment=self.assessment,
             probe_program_versions=self.probe_attempt_count,probe_designs=self.probe_design_count,
             probe_repairs=self.probe_repair_count,
@@ -435,7 +448,16 @@ class ActiveLoop:
                 raise ValueError("Unified loop requires measured robot/predictive API v2")
         self.call(self.target,"target.update_identification",dict(belief=self.belief))
         observed=observation(self.call(self.target,"target.prepare",{}))
-        self.initial_visual={key:observed[key] for key in ("time_s","coordinate_frame","object","tcp")}
+        self.scene_object_ids=object_ids(observed)
+        self.feature_schema=response_schema(observed)
+        if self.feature_schema==SCENE_FEATURE_SCHEMA:
+            scales=tuple(self.cfg.feature_scales)*len(self.scene_object_ids)
+            self.cfg=replace(self.cfg,feature_scales=scales)
+            self.belief.update(object_ids=self.scene_object_ids,
+                objects={key:dict(estimates=[]) for key in self.scene_object_ids})
+        self.initial_visual=visual_observation(observed)
+        self.write("task_context/world.json",dict(world_count=1,object_ids=self.scene_object_ids,
+            feature_schema=self.feature_schema,feature_scales=list(self.cfg.feature_scales)))
         self.write("task_context/initial_visual.json",self.initial_visual)
         candidates=[]
         for index in range(self.cfg.max_rounds):
@@ -481,3 +503,8 @@ class ActiveLoop:
                 if self.store.policies:
                     candidates = self.evaluate(f"models/version_{self.model_version:03d}_prediction.json")
         return self.finish("round_budget_exhausted","Automatic revision budget reached before sufficiency")
+
+    def check_scene(self, observed):
+        check_objects(observed,self.scene_object_ids)
+        if response_schema(observed)!=self.feature_schema:
+            raise ValueError("World observation contract changed during the loop")

@@ -14,7 +14,9 @@ from ..api.client import APIError
 from ..core.contracts import IDENTIFICATION_API_VERSION, finite
 from ..core.identification import ROBOT_API
 from ..core.policy import Policy, execute
-from ..core.measurements import FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES, response_features
+from ..core.measurements import (FEATURE_SCHEMA, SCENE_FEATURE_SCHEMA, FEATURE_NAMES, FEATURE_SCALES,
+    response_features, response_schema)
+from ..core.scene import objects, object_ids, check_objects, supported
 from ..core.exploration import checked_checkpoint, PAUSED_STATUSES, resumable
 from .robot import vector, RobotContractError
 
@@ -35,9 +37,11 @@ def settle_ready_state(robot, *, max_holds=16):
         current=robot.observe()
         if current["time_s"]-previous["time_s"]<.4:
             raise APIError("Episode preparation hold did not advance measured controller time")
-        stable=(math.dist(current["object"]["position"],previous["object"]["position"])<=.001 and
+        check_objects(current, object_ids(previous))
+        stable=(all(math.dist(obj["position"],objects(previous)[key]["position"])<=.001 and
+            angle(obj["quaternion_wxyz"],objects(previous)[key]["quaternion_wxyz"])<=.003
+            for key,obj in objects(current).items()) and
             math.dist(current["tcp"]["position"],previous["tcp"]["position"])<=.001 and
-            angle(current["object"]["quaternion_wxyz"],previous["object"]["quaternion_wxyz"])<=.003 and
             angle(current["tcp"]["quaternion_wxyz"],previous["tcp"]["quaternion_wxyz"])<=.003 and
             abs(current["gripper"]["opening_m"]-previous["gripper"]["opening_m"])<=.001)
         diagnostics.append(dict(time_s=current["time_s"],opening_m=current["gripper"]["opening_m"],stable=stable))
@@ -80,16 +84,14 @@ def observation(raw):
     """Whitelist measurable channels; private backend fields cannot leak."""
     if raw["coordinate_frame"] != "robot_base":
         raise ValueError("Expected robot_base observations")
-    obj, tcp, wrench, joints = (raw[k] for k in ("object", "tcp", "wrench", "joints"))
+    tcp, wrench, joints = (raw[k] for k in ("tcp", "wrench", "joints"))
     if wrench.get("frame") != "robot_base" or wrench.get("about") != "tcp":
         raise ValueError("Wrench must be transformed to robot_base about the measured TCP")
-    if len(obj["axes"]) != 3:
-        raise ValueError("Object axes require three body-frame directions")
-    return dict(time_s=finite(raw["time_s"]), coordinate_frame="robot_base",
-        object=dict(position=vector(obj["position"], 3), quaternion_wxyz=vector(obj["quaternion_wxyz"], 4),
-            axes=[vector(a, 3) for a in obj["axes"]], dimensions_m=vector(obj["dimensions_m"], 3),
-            grasp_quaternion_wxyz=vector(obj["grasp_quaternion_wxyz"], 4),
-            support_clearance_m=finite(obj["support_clearance_m"])),
+    scene = {key: object_observation(obj) for key,obj in objects(raw).items()}
+    # The singular field is a deterministic compatibility view, never a second
+    # World or a track that switches when the robot grasps another object.
+    result = dict(time_s=finite(raw["time_s"]), coordinate_frame="robot_base",
+        object=scene[sorted(scene)[0]],
         tcp=dict(position=vector(tcp["position"], 3), quaternion_wxyz=vector(tcp["quaternion_wxyz"], 4)),
         wrench=dict(force_n=vector(wrench["force_n"], 3), torque_nm=vector(wrench["torque_nm"], 3),
             frame="robot_base", about="tcp", valid=wrench["valid"] is True,
@@ -97,6 +99,18 @@ def observation(raw):
         joints=dict(position_rad=vector(joints["position_rad"], 7),
             actuator_torque_nm=vector(joints["actuator_torque_nm"], 7)),
         gripper=dict(opening_m=finite(raw["gripper"]["opening_m"])))
+    if "objects" in raw:
+        result["objects"] = scene
+    return result
+
+
+def object_observation(obj):
+    if len(obj["axes"]) != 3:
+        raise ValueError("Object axes require three body-frame directions")
+    return dict(position=vector(obj["position"], 3), quaternion_wxyz=vector(obj["quaternion_wxyz"], 4),
+        axes=[vector(a, 3) for a in obj["axes"]], dimensions_m=vector(obj["dimensions_m"], 3),
+        grasp_quaternion_wxyz=vector(obj["grasp_quaternion_wxyz"], 4),
+        support_clearance_m=finite(obj["support_clearance_m"]))
 
 
 class MeasuredRobot:
@@ -123,7 +137,8 @@ class MeasuredRobot:
         state = self.proprioception.call("robot.state", {})
         if abs(finite(obj["time_s"])-finite(state["time_s"])) > .1:
             raise APIError("Object and proprioception clocks differ by more than 0.1 s")
-        return observation(dict(**state, object=obj["object"]))
+        geometry = dict(objects=obj["objects"]) if "objects" in obj else dict(object=obj["object"])
+        return observation(dict(**state, **geometry))
 
     def prepare(self):
         response = self.setup.call("episode.prepare", {})
@@ -162,6 +177,17 @@ class Dispatcher:
         if isinstance(declared,bool) or not isinstance(declared,int) or not 1<=declared<=192:
             raise RobotContractError("Invalid declared RPC budget")
         self.max_calls=declared
+        self.scene_ids=object_ids(initial)
+        self.workspace=robot.describe().get("workspace", {})
+        if "objects" in initial:
+            # A scene can extend beyond the old 25 cm single-object workspace.
+            # Its trusted robot adapter must publish the actual shared bounds.
+            if not {"min_position_m","max_position_m"} <= self.workspace.keys():
+                raise RobotContractError("Scene robot must declare shared workspace min_position_m/max_position_m")
+            self.workspace_min=vector(self.workspace["min_position_m"],3)
+            self.workspace_max=vector(self.workspace["max_position_m"],3)
+            if any(a>=b for a,b in zip(self.workspace_min,self.workspace_max)):
+                raise RobotContractError("Invalid scene workspace bounds")
 
     def safe_boundary(self):
         current=self.robot.observe()
@@ -169,12 +195,15 @@ class Dispatcher:
             if current["time_s"]-s["observation"]["time_s"]>=.1),None)
         if earlier is None:return False
         cap=self.robot.describe();tol=cap.get("motion_contract",MOTION_CONTRACT)
-        a,b=current["object"],earlier["object"]
-        qa,qb=a["quaternion_wxyz"],b["quaternion_wxyz"]
-        similarity=abs(sum(x*y for x,y in zip(qa,qb)))/math.sqrt(sum(x*x for x in qa)*sum(x*x for x in qb))
-        return (abs(a["support_clearance_m"])<=.003 and
-            math.dist(a["position"],b["position"])<=tol["position_tolerance_m"] and
-            2*math.acos(min(1.,similarity))<=tol["orientation_tolerance_rad"] and
+        check_objects(current,self.scene_ids)
+        check_objects(earlier,self.scene_ids)
+        def stable(a,b):
+            qa,qb=a["quaternion_wxyz"],b["quaternion_wxyz"]
+            similarity=abs(sum(x*y for x,y in zip(qa,qb)))/math.sqrt(sum(x*x for x in qa)*sum(x*x for x in qb))
+            return (math.dist(a["position"],b["position"])<=tol["position_tolerance_m"] and
+                2*math.acos(min(1.,similarity))<=tol["orientation_tolerance_rad"])
+        return (supported(current) and
+            all(stable(obj,objects(earlier)[key]) for key,obj in objects(current).items()) and
             math.dist(current["tcp"]["position"],earlier["tcp"]["position"])<=tol["position_tolerance_m"] and
             current["gripper"]["opening_m"]>=cap["gripper"]["max_opening_m"]-.003)
 
@@ -217,7 +246,10 @@ class Dispatcher:
                     raise RobotContractError("Invalid pose arguments")
                 p, q = vector(params["position"], 3), vector(params["quaternion_wxyz"], 4)
                 centre = self.initial["object"]["position"]
-                if (math.dist(p[:2], centre[:2]) > .25 or not -.02 <= p[2]-centre[2] <= .2
+                outside=(any(not lo<=v<=hi for v,lo,hi in zip(p,self.workspace_min,self.workspace_max))
+                    if "objects" in self.initial else
+                    math.dist(p[:2],centre[:2])>.25 or not -.02<=p[2]-centre[2]<=.2)
+                if (outside
                         or abs(sum(x*x for x in q)-1) > .02 or not 0 <= finite(params["z_approach"]) <= .12
                         or (params["speed"] is not None and not .1 <= finite(params["speed"]) <= 1)):
                     raise RobotContractError("Workspace, quaternion or speed constraint violated")
@@ -225,7 +257,7 @@ class Dispatcher:
                 if not 0 < finite(params["duration_s"]) <= 2:
                     raise RobotContractError("Hold duration outside (0,2] seconds")
             elif method in ("open_gripper", "close_gripper") and not params:
-                if method == "open_gripper" and self.robot.observe()["object"]["support_clearance_m"] > .003:
+                if method == "open_gripper" and not supported(self.robot.observe()):
                     raise RobotContractError("Release requires measured support proximity")
             else:
                 raise RobotContractError("Unavailable identification API method")
@@ -242,6 +274,7 @@ class Dispatcher:
                 raise
             result = self.robot.observe()
         sample = dict(event=method, params=copy.deepcopy(params), observation=result)
+        check_objects(result,self.scene_ids)
         if method == "goto_pose":
             sample["motion_feedback"] = copy.deepcopy(getattr(self.robot, "last_motion", []))
         self.samples.append(sample)
@@ -280,6 +313,7 @@ class InstrumentedTarget:
             return settle_ready_state(self.robot)
         if method == "target.describe" and not params:
             return dict(self.robot.describe(), feature_schema=FEATURE_SCHEMA,
+                supported_feature_schemas=[FEATURE_SCHEMA,SCENE_FEATURE_SCHEMA],
                 feature_names=list(FEATURE_NAMES), feature_scales=list(FEATURE_SCALES))
         if method == "target.observe" and not params:
             return self.robot.observe()
@@ -315,5 +349,5 @@ class InstrumentedTarget:
             observations=dispatcher.samples, wall_s=time.monotonic()-start,
             cost_s=dispatcher.samples[-1]["observation"]["time_s"]-dispatcher.initial["time_s"],
             setup_cost_s=getattr(self.robot,"setup_cost_s",None),
-            evidence_id=uuid.uuid4().hex, feature_schema=FEATURE_SCHEMA,
+            evidence_id=uuid.uuid4().hex, feature_schema=response_schema(dispatcher.initial),
             features=response_features(dispatcher.samples))

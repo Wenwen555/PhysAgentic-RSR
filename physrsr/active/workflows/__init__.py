@@ -1,1 +1,1 @@
-"""PhysRSR workflows modules; imports do not start services."""
+"""The sole automatic workflow: the single-World predictive ActiveLoop."""

@@ -14,6 +14,7 @@
 从 `/data/wjt/PhyAgent-RSR-v1` 运行，复用 CaP-X 环境：
 
 ```bash
+uv pip install --python src/cap-x/.venv/bin/python 'jsonschema>=4.18,<5'
 uv pip install --python src/cap-x/.venv/bin/python --no-deps -e .
 src/cap-x/.venv/bin/python -m physrsr --help
 src/cap-x/.venv/bin/python -m physrsr.active validate-config physrsr/active/examples/rod_lift.json
