@@ -36,5 +36,22 @@ actions have empty target_instance_ids/interactions and zero Probe cost.
 Program defects are not new physical uncertainty. Respect the shared interaction
 and time budget. A safe pause requires all objects supported and gripper open.
 
+VALUE AND FAILURE CONTRACT
+Set value_basis: bootstrap only before a grounded model, existing_candidates for
+computed policy-choice information, new_structure for explicitly heuristic new
+program exploration, validation for independent intervention checks, or none for
+code-only actions. Heuristic exploration has its own interaction/time allowance;
+your benefit number cannot override low computed decision value. The host compares
+several executable Probe proposals sequentially where policy scores exist.
+Inspect the complete models and model_diagnostics, not only model IDs. Connect
+failure trajectories to competing physical explanations, a discriminating setting,
+and which candidate operation changes under each outcome. A generated task program
+error requires revise_policy; it is not by itself new physical uncertainty.
+Model inadequacy can require new fit evidence within budget. A failed validation
+remains a contradiction until new fit data and a model revision resolve it; another
+passing check cannot erase it. Stop additionally needs host finite-candidate regret
+and current-candidate intervention coverage. Do not claim global exploration
+optimality or calibrated statistical confidence.
+
 PUBLIC CONTEXT
 {context}

@@ -12,15 +12,7 @@ from .robot import RobotContractError, RobotDispatcher, RobotService, public_obs
 from ..tasks.rod_lift import MECHANISM, FIXED_MASS_MECHANISM, ROD_SUCCESS
 
 
-def observation_provider(env):
-    # Trusted backend adapter only. Generated code never receives env or MJCF.
-    from physrsr.candidate_programs import rod_pose, down_grasp_quat
-    position, axis = rod_pose(env)
-    _, tcp = env.get_eef_pose()
-    return public_observation(dict(rod_position=position.tolist(), rod_axis=axis.tolist(),
-        grasp_quat=down_grasp_quat(env).tolist(), tcp_position=tcp.tolist(),
-        coordinate_frame="robot_base", time_s=float(env.robosuite_env.sim.data.time)))
-
+from .observations import observation_provider
 
 class APIPolicyProgram:
     """RolloutWorker protocol, with policy execution exclusively via public RPC."""
@@ -33,7 +25,7 @@ class APIPolicyProgram:
     def run(self, env, api, physics=None):
         service = RobotService(api, lambda: observation_provider(env), lambda: None)
         self.dispatcher = RobotDispatcher(service, observation_provider(env))
-        from physrsr.coding.runtime import ProgramError
+        from physrsr.execution import ProgramError
         try:
             self.runtime = execute(self.policy, self.dispatcher)
         except (ProgramError, RobotContractError):
@@ -106,7 +98,7 @@ class RodSimulatorService:
                             env.robosuite_env.seed_episode(int(seed))
                             env.reset(seed=int(seed))
                             start = float(env.robosuite_env.sim.data.time)
-                            from physrsr.coding.runtime import ProgramError
+                            from physrsr.execution import ProgramError
                             try:
                                 program.run(env, api)
                                 record = dict(status="completed", reason="")

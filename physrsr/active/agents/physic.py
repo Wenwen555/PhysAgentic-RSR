@@ -11,7 +11,7 @@ from ..api.client import APIError
 from ..core.exploration import CONTRACT
 from ..core.identification import ROBOT_API
 from ..core.paths import PROMPTS_ROOT
-from ..core.programs import source_policy, resumable_probe_source
+from ..core.programs import task_candidate, resumable_probe_source
 
 
 DESIGN_SCHEMA = ProbeDesign.model_json_schema()
@@ -27,7 +27,7 @@ def probe_prompt(context):
 
 def validate_probe_design(answer, context):
     ProbeDesign.model_validate(answer, context=context)
-    return (source_policy(answer["code"]) if context.get("purpose","fit")=="validation"
+    return (task_candidate(answer["code"]) if context.get("purpose","fit")=="validation"
         else resumable_probe_source(answer["code"]))
 
 
@@ -61,6 +61,7 @@ class PhysicAgent(AgentService):
             label="Physical model revision",context=context)
 
     def call(self, method, params):
+        if method=="physic.describe" and not params:return self.descriptor()
         operations={"physic.assess_task":self.assess_task,"physic.design_probe":self.design_probe,
             "physic.revise_physical_model":self.revise_physical_model}
         if method not in operations:

@@ -65,10 +65,10 @@ Agent 接口、阶段 Schema 与移除入口见 [Agent 合同](agent_contracts.m
 版本不一致时记录会话、调用方法、预期/实际版本，并抛出 `ModelVersionError`；不自动重同步或继续认证。
 主循环通过 `handle_stop / handle_policy / handle_probe` 分派动作；各处理函数仍执行相同的证据和预算检查。
 参数 schema 来自任务适配器声明的名称、单位、坐标系与范围，不固定为 COM 或摩擦。
-提交前，宿主用原 Probe 源码、交互发生时的记忆和全部拟合观测检查新模型；解释不了就不提交。
+提交前，宿主用原 Probe 源码、交互发生时的记忆和全部拟合观测检查新模型；解释不了就不提交，并把逐模型/逐证据诊断送回任务评估，在剩余模型修订和交互预算内继续辨识。
 验证数据不进入模型拟合。验证失败要求新的拟合交互，模型更新后旧验证记录失效。
 
-`measured_response_v2` 包含物体三维位移、转角、物体/TCP 相对平移变化、腕部力和力矩变化、最大升高、载荷峰值与六个有符号的腕部变化分量。
+`measured_response_v3` 包含物体三维位移、转角、物体/TCP 相对平移变化、腕部力和力矩变化、最大升高、载荷峰值与六个有符号的腕部变化分量。
 完整观测仍保存。相对平移不是滑移真值，原始腕部载荷不是已去皮物体载荷；数值辨识由生成的 Probe 按测量方程执行。
 十六个 `loop.feature_scales` 是工程误差尺度，不声称已校准的统计置信区间。
 
@@ -110,7 +110,7 @@ src/cap-x/.venv/bin/python -m physrsr serve-simulator \
 ```
 
 每个可信适配器提供 `task_id`、`mechanisms`、`parameter_contracts`、`validate(task, model)`，以及
-`execute(task, model, policy, seed, belief, purpose)`。
+`execute(task, model, policy, seed, belief, purpose, *, execution_budget=None)`。
 任务预测返回 `success/risk/margin/duration_s/observations`；Probe 返回 v2 运行观测与风险。
 任务几何、物理绑定和原始成功谓词由适配器维护，机器人合同与真机保持一致。
 新任务不需要修改调度器、Physic prompt 或模型参数 schema。
@@ -134,3 +134,5 @@ Probe 的分析、prompt、源码、预测、执行观测与 belief 保存在同
 
 旧 v1 状态机已删除；`serve-legacy-simulator` 仅保留旧 API 服务能力，供显式单阶段工具使用。
 历史固定实验工具已从当前包删除，已有冻结对照保留。模型集合停止规则不是实际环境成功率的置信保证。
+
+联合拟合、对象/共享通道、干预覆盖、预算、冻结运行输入和运行清单的准确合同见 [reliability.md](reliability.md)。

@@ -21,7 +21,7 @@ No environment, simulator, hidden physics, filesystem or network access.
 The identical Python source runs in the simulator and on the real arm.
 Do not change force limits or task success criteria.
 """
-FEATURE_SCALES = (0.05, 0.05, 0.005, 0.005, 0.005)
+FEATURE_SCALES = (.005, .005, .005, .05, .005, .05, .005, .005, .05, .005, .05, .05, .05, .005, .005, .005)
 
 
 def finite(value, name="value"):
@@ -74,20 +74,24 @@ class LoopConfig:
     max_prediction_error: float = 3.0
     feature_scales: tuple = FEATURE_SCALES
     model_seeds: tuple = (7201, 7202)
+    probe_candidates: int = 2
+    max_heuristic_probes: int = 2
+    max_heuristic_cost: float = 30.
 
     def __post_init__(self):
-        for key in ("max_rounds", "max_probes", "max_model_revisions", "max_candidates", "min_validation_probes"):
+        for key in ("max_rounds", "max_probes", "max_model_revisions", "max_candidates", "min_validation_probes","max_heuristic_probes","probe_candidates"):
             value = getattr(self, key)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"Invalid {key}")
         if not self.max_rounds or self.max_candidates < 2 or not self.min_validation_probes:
             raise ValueError("Positive rounds/validation and at least two candidates are required")
+        if not 1<=self.probe_candidates<=4:raise ValueError("Compare between one and four executable Probe candidates")
         for key in ("reliability", "support_mass"):
             if not 0 < finite(getattr(self, key), key) <= 1:
                 raise ValueError(f"Invalid {key}")
         if not 0 <= finite(self.max_risk) <= 1:
             raise ValueError("Invalid max_risk")
-        for key in ("max_probe_cost", "time_weight", "risk_weight", "probe_cost_weight", "min_net_value", "max_prediction_error"):
+        for key in ("max_probe_cost", "time_weight", "risk_weight", "probe_cost_weight", "min_net_value", "max_prediction_error","max_heuristic_cost"):
             if finite(getattr(self, key), key) < 0:
                 raise ValueError(f"Invalid {key}")
         finite(self.min_margin, "min_margin")
@@ -115,9 +119,21 @@ class Task:
 
 def read_config(payload):
     task = Task(**payload["task"])
+    if not task.id or not task.instruction.strip() or not task.success or not task.constraints:
+        raise ValueError("Task ID, semantic instruction, success and constraints are required")
     config = LoopConfig(**payload.get("loop", {}))
+    if len(config.feature_scales)!=16:
+        raise ValueError("Configure exactly 16 base feature scales; scene layout is derived explicitly")
     proposed=[Hypothesis(**m) for m in payload.get("models",[])]
     models = normalize(proposed) if proposed else ()
     if len(models) > 128:
         raise ValueError("At most 128 model hypotheses")
+    from ..tasks.registry import BUILTIN_ADAPTERS, create_adapters
+    specification=payload.get("adapter",task.id)
+    if specification not in BUILTIN_ADAPTERS and ":" not in specification:
+        raise ValueError("Unknown task ID; an external task requires an explicit adapter factory")
+    adapter=create_adapters([specification])[0]
+    if adapter.task_id!=task.id:raise ValueError("Task does not match adapter")
+    adapter.validate_task(task.public(IDENTIFICATION_API_VERSION))
+    for model in models:adapter.validate(task.public(IDENTIFICATION_API_VERSION),model)
     return task, config, models

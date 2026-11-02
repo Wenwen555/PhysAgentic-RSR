@@ -21,9 +21,12 @@ class RodMeasuredAdapter:
         MECHANISM: dict(com_offset=dict(unit="m", frame="object_body_x", minimum=-.12, maximum=.12),
             friction=dict(unit="1", frame="contact", exclusiveMinimum=0))}
 
-    def validate(self, task, model):
+    def validate_task(self, task):
         if task["success"] != ROD_SUCCESS or task["constraints"].get("grip_force_per_finger_n") != 2.:
             raise APIError("Task adapter requires the original success predicate and force cap")
+
+    def validate(self, task, model):
+        self.validate_task(task)
         contract = self.parameter_contracts.get(model.mechanism)
         if contract is None or set(model.parameters) != set(contract):
             raise APIError("Unsupported model mechanism/parameters")
@@ -33,12 +36,13 @@ class RodMeasuredAdapter:
                     or value <= limits.get("exclusiveMinimum", -float("inf"))):
                 raise APIError("Physical model parameter outside adapter bounds")
 
-    def execute(self, task, model, policy, seed, belief, purpose):
+    def execute(self, task, model, policy, seed, belief, purpose, *, execution_budget=None):
         from .rod_lift_world import InstrumentedWorld
         physics = dict(model.parameters, grip_force=2.)
         if model.mechanism == FIXED_MASS_MECHANISM:
             physics["inertial_mode"] = "fixed_mass_com"
         world = InstrumentedWorld(dict(physics=physics, seeds=[seed]))
+        world.replay_budget=execution_budget
         try:
             world.call("target.update_identification", dict(belief=belief))
             if purpose == "policy":
@@ -53,10 +57,12 @@ class RodMeasuredAdapter:
                     abs(axis[2])*dimension/2 for axis,dimension in zip(obj["axes"],obj["dimensions_m"]))
                 margin = min(centre_above_support-ROD_SUCCESS["lift_above_table_m"],
                     ROD_SUCCESS["max_abs_axis_z"]-vertical)
-                return dict(status=record["status"], reason=record["reason"],
+                duration = record.get("sim_duration_s")
+                if duration is None:
+                    duration = result["observations"][-1]["observation"]["time_s"]-result["observations"][0]["observation"]["time_s"]
+                return dict(status=record["status"], reason=record["reason"],error_kind=result.get("error_kind"),
                     success=record["status"] == "success", risk=float(record["status"] == "error"),
-                    margin=margin, duration_s=record.get("sim_duration_s",
-                        result["observations"][-1]["observation"]["time_s"]-result["observations"][0]["observation"]["time_s"]), **{
+                    margin=margin, duration_s=finite(duration,"rollout physical duration"), **{
                         key: result[key] for key in ("observations", "program_return")})
             result = world.call("target.execute_probe", dict(policy=policy.wire()))
             terminal = result["observations"][-1]["observation"]

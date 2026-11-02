@@ -86,6 +86,8 @@ class SceneMeasuredRobot(SimulatedMeasuredRobot):
 
 class ThreeRodWorld(InstrumentedTarget):
     def __init__(self, private_config):
+        from .rod_scene import SCENE_SUCCESS
+        self.task_contract=dict(id="three_rod_lift_return",success=SCENE_SUCCESS,constraints=dict(grip_force_per_finger_n=2.))
         self.backend=SceneBackend(private_config)
         super().__init__(SceneMeasuredRobot(self.backend))
 
@@ -106,8 +108,9 @@ class ThreeRodWorld(InstrumentedTarget):
                 gripper_actuator_force_ranges_n=model.actuator_forcerange[actuators].tolist())
         if method not in ("target.execute_policy","world.evaluate_policy"):
             return super().call(method,params)
-        if set(params)!={"policy"}:
+        if set(params) not in ({"policy"},{"policy","expected"}):
             raise APIError("Scene task execution accepts only one frozen policy")
+        self.check_execution(params)
         policy=Policy.from_wire(params["policy"])
         if policy.api_version!=IDENTIFICATION_API_VERSION:
             raise APIError("Scene execution requires measured API v2")

@@ -32,13 +32,15 @@ class RecordedCalls:
         self.recorder = recorder
 
     def call(self, endpoint, method, params):
-        self.recorder.event("api_request", method=method, params=params)
+        from ..core.bundle import content_hash
+        request_sha=content_hash(dict(method=method,params=params))
+        self.recorder.event("api_request", method=method, params=params,request_sha256=request_sha)
         try:
             result = endpoint.call(method, params)
         except Exception as exc:
             self.recorder.event("api_error", method=method, error_type=type(exc).__name__, error=str(exc))
             raise
-        self.recorder.event("api_response", method=method, result=result)
+        self.recorder.event("api_response", method=method, result=result,request_sha256=request_sha,response_sha256=content_hash(result))
         return result
 
     def checked_version(self, response, *, session_id, method, expected):

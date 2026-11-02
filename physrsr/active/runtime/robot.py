@@ -134,7 +134,7 @@ class TargetService:
             raise APIError("Negative setup cost")
         dispatcher = RobotDispatcher(self.robot, initial)
         start = time.monotonic()
-        from physrsr.coding.runtime import ProgramError
+        from physrsr.execution import ProgramError
         status, error, runtime = "completed", None, {}
         try:
             runtime = self.runner(policy, dispatcher) or {}

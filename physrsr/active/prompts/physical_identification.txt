@@ -157,5 +157,20 @@ before its execution.
 The host will execute your frozen experiment, archive measurements, and provide
 the inference to a separate task program synthesizer.
 
+VALIDATION CONTRACT
+For fitting, validation must be null and at least two distinct settings are
+required. For purpose=validation, supply the structured validation object binding
+candidate_sha256, all target object IDs, all effective model hypothesis IDs, a
+competing alternative explanation, task operation, contact settings in the object's
+body frame, excitation minima and the prediction-error acceptance threshold.
+Use validation_requirements from the host; never weaken those ranges. Each declared
+setting must actually be executed with its required exposure, object/TCP motion,
+rotation and sensor excitation. The host verifies settings against the trajectory,
+including resumed segments, not your returned success claims. Observe-only code,
+dead action branches or a changed variable name cannot certify intervention coverage.
+Prefer a compact intervention that covers the current candidate's operation range
+and can distinguish the stated competing explanation. For executable candidate
+comparison, differ physically from competing_probe_sources, not just in prose.
+
 PUBLIC CONTEXT
 {context}

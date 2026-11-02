@@ -35,6 +35,7 @@ class SimulatedMeasuredRobot:
         env, _ = self.backend.ensure()
         robot = env.robosuite_env.robots[0]
         return dict(api_version=IDENTIFICATION_API_VERSION, robot_api=ROBOT_API,
+            trajectory_sampling=dict(mode="simulation_control_ticks",sample_rate_hz=20.),
             motion_contract=copy.deepcopy(MOTION_CONTRACT),
             workspace=dict(xy_radius_m=.25, z_relative_min_m=-.02, z_relative_max_m=.20,
                 reference_position_m=getattr(self, "reference_position", self.observe()["object"]["position"])),
@@ -52,7 +53,7 @@ class SimulatedMeasuredRobot:
     def observe(self):
         import numpy as np
         from scipy.spatial.transform import Rotation
-        from ..runtime.simulator import observation_provider
+        from ..runtime.observations import observation_provider
         env, _ = self.backend.ensure()
         # lite_physics uses split step1/step2. Refresh acceleration-stage
         # transducers from the current solved dynamics; otherwise sensordata
@@ -97,6 +98,27 @@ class SimulatedMeasuredRobot:
             gripper=dict(opening_m=float(np.abs(sim.data.qpos[fingers]).sum()))))
 
     def action(self, method, params, control=None):
+        env,_=self.backend.ensure()
+        self.control_samples=[]
+        original=env._step_once
+        last=env.robosuite_env.sim.data.time
+        def sample_step(*args,**kwargs):
+            nonlocal last
+            result=original(*args,**kwargs)
+            now=float(env.robosuite_env.sim.data.time)
+            if now-last>=.05-1e-9:
+                self.control_samples.append(self.observe());last=now
+            return result
+        env._step_once=sample_step
+        try:return self._action(method,params,control)
+        finally:env._step_once=original
+
+    def drain_observations(self):
+        samples=getattr(self,"control_samples",[])
+        self.control_samples=[]
+        return samples
+
+    def _action(self, method, params, control=None):
         env, api = self.backend.ensure()
         if method == "goto_pose":
             self.last_motion = move_with_feedback(control or api, self.observe, params,
@@ -117,6 +139,8 @@ class SimulatedMeasuredRobot:
 class InstrumentedWorld(InstrumentedTarget):
     def __init__(self, private_config):
         from ..runtime.backends import SimulatedRobotService
+        from .rod_lift import ROD_SUCCESS
+        self.task_contract=dict(id="rod_lift",success=ROD_SUCCESS,constraints=dict(grip_force_per_finger_n=2.))
         self.backend = SimulatedRobotService(private_config)
         super().__init__(SimulatedMeasuredRobot(self.backend))
 
@@ -130,19 +154,22 @@ class InstrumentedWorld(InstrumentedTarget):
             return dict(mass_kg=float(model.body_mass[body]), com_body_m=model.body_ipos[body].tolist(),
                 principal_inertia_kg_m2=model.body_inertia[body].tolist(),
                 gripper_actuator_force_ranges_n=model.actuator_forcerange[actuators].tolist())
-        if method != "world.evaluate_policy":
+        if method not in ("world.evaluate_policy","target.execute_policy"):
             return super().call(method, params)
-        if set(params) != {"policy"}:
+        if set(params) not in ({"policy"},{"policy","expected"}):
             raise APIError("Evaluation accepts only a frozen policy")
+        self.check_execution(params)
         policy = Policy.from_wire(params["policy"])
         if policy.api_version != IDENTIFICATION_API_VERSION:
             raise APIError("Expected identification API")
-        program = InstrumentedProgram(policy, self.robot)
+        program = InstrumentedProgram(policy, self.robot,self.replay_budget)
         self.backend.ensure()
         record = asdict(self.backend.worker.rollout(program, int(self.backend.seeds[0]), role="world"))
         samples = [] if program.dispatcher is None else program.dispatcher.samples
         samples.append(dict(event="terminal", observation=self.robot.observe()))
         return dict(policy_sha256=policy.sha256, record=record, observations=samples,
+            status="program_error" if program.error_kind=="program" else "infrastructure_error" if record["status"]=="error" else "completed",
+            task_result=dict(success=record["status"]=="success",reason=record["reason"]),
             program_return=program.runtime.get("return_value"), error_kind=program.error_kind)
 
     def close(self):

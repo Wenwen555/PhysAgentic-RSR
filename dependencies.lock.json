@@ -1,0 +1,59 @@
+{
+  "format": "physrsr.dependencies.v1",
+  "repositories": [
+    {
+      "path": "src/cap-x",
+      "url": "https://github.com/Wenwen555/PhysAgentic-RSR.git",
+      "commit": "1925e785a7db133c858e915387432a5529c53d0e",
+      "required": true
+    },
+    {
+      "path": "src/cap-x/capx/third_party/LIBERO-PRO",
+      "url": "https://github.com/uynitsuj/LIBERO-PRO.git",
+      "commit": "5368540790fde9a18584d64105ec5ac16d8926bd",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/verl",
+      "url": "https://github.com/Max-Fu/verl.git",
+      "commit": "d5b4ca2712b3048a60745482a74425d687add0bb",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/robosuite",
+      "url": "https://github.com/uynitsuj/robosuite",
+      "commit": "97292732ed909ac3ae116579fb768607034a4dbd",
+      "required": true
+    },
+    {
+      "path": "src/cap-x/capx/third_party/contact_graspnet_pytorch",
+      "url": "https://github.com/uynitsuj/contact_graspnet_pytorch",
+      "commit": "da3dcfb2f53e43b186083ee4a9d1e232f73efc98",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/libero_dependencies/robosuite",
+      "url": "https://github.com/Max-Fu/robosuite",
+      "commit": "a498b087d4bc5a3981e3d27030d09bc537a537f3",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/sam3",
+      "url": "https://github.com/Max-Fu/sam3.git",
+      "commit": "6fe87d64a5beb9084923d7a9e002741178635b09",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/curobo",
+      "url": "https://github.com/NVlabs/curobo.git",
+      "commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
+      "required": false
+    },
+    {
+      "path": "src/cap-x/capx/third_party/b1k",
+      "url": "https://github.com/qingh097/b1k.git",
+      "commit": "272ec5ca9936453c4a8fd335c4dfba61245e33ca",
+      "required": false
+    }
+  ]
+}

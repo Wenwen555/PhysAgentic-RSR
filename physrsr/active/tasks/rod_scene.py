@@ -105,9 +105,12 @@ class ThreeRodAdapter:
             com_offset=dict(unit="m",frame="object_body_x",minimum=-.12,maximum=.12),
             friction=dict(unit="1",frame="contact",exclusiveMinimum=0,maximum=3.)).items()}}
 
-    def validate(self, task, model):
+    def validate_task(self, task):
         if task["success"] != SCENE_SUCCESS or task["constraints"].get("grip_force_per_finger_n")!=2.:
             raise APIError("Three-rod adapter requires the complete lift-hold-return predicate and 2 N cap")
+
+    def validate(self, task, model):
+        self.validate_task(task)
         contract = self.parameter_contracts.get(model.mechanism)
         if contract is None or set(model.parameters)!=set(contract):
             raise APIError("A scene hypothesis must model all three rods")
@@ -117,7 +120,7 @@ class ThreeRodAdapter:
                     or value<=limits.get("exclusiveMinimum",-float("inf"))):
                 raise APIError("Scene physical parameter outside adapter bounds")
 
-    def execute(self, task, model, policy, seed, belief, purpose):
+    def execute(self, task, model, policy, seed, belief, purpose, *, execution_budget=None):
         from .rod_scene_world import ThreeRodWorld
         self.validate(task,model)
         if purpose not in ("probe","policy"):
@@ -130,6 +133,7 @@ class ThreeRodAdapter:
             half_size_m=[v/2 for v in scene["objects"][key]["dimensions_m"]]) for key in OBJECT_IDS})
         world=ThreeRodWorld(config)
         try:
+            world.replay_budget=execution_budget
             world.call("target.update_identification",dict(belief=belief))
             result=world.call("world.evaluate_policy" if purpose=="policy" else "target.execute_probe",dict(policy=policy.wire()))
             if purpose=="probe":

@@ -75,7 +75,8 @@ class RolloutRecord:
     """Outcome of a single (program, seed) rollout.
 
     ``status`` separates a genuine physical failure (``"fail"``) from an
-    infrastructure error (``"error"``, e.g. IK server unavailable). Treating an
+    execution exception (``"error"``). Active adapters distinguish generated program
+    errors from infrastructure faults via ``error_kind``. Treating an
     exception as a failure — as the first harness version did — silently turns
     a broken pipeline into a plausible-looking zero success rate.
     """
@@ -96,7 +97,8 @@ class RolloutRecord:
     #: Per-phase state samples; see :mod:`physrsr.phase_tracker`.
     phases: list[dict] = field(default_factory=list)
     duration_s: float = 0.0
-    #: MuJoCo elapsed physical time after reset, excluding host/IK latency.
+    #: MuJoCo elapsed time after reset, including partial execution on error.
+    #: None only when no reset/start clock was established; excludes host/IK latency.
     sim_duration_s: float | None = None
 
     @property

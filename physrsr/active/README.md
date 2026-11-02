@@ -73,7 +73,7 @@ Schema、prompt、生成源码、API 请求响应、实测轨迹、验证和停�
 ## 验证
 
 ```bash
-MUJOCO_GL=egl src/cap-x/.venv/bin/python -m pytest src/cap-x/tests/active -q
+MUJOCO_GL=egl src/cap-x/.venv/bin/python -m pytest tests/active -q
 ```
 
 测试覆盖合同、隔离执行器、主循环、单次诊断和三杆真实编译/接触/步进，不调用真实 LLM、IK 服务或真机。

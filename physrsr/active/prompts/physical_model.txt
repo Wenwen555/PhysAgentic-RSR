@@ -6,6 +6,10 @@ their stated units/frames; do not treat a recommended action setting as a physic
 parameter. Evidence IDs must identify the supplied fit interactions. Do not use
 validation data to fit, invent mechanism implementations, or claim prediction
 success. The host will replay every fit interaction before committing the model.
-Return complete model hypotheses, not a policy or simulator source code.
+Return complete model hypotheses, not a policy or simulator source code. Proposed
+weights are annotations only: the host assigns a uniform prior over unique proposed
+physical supports and recomputes from the complete set of fit evidence exactly once.
+A surviving hypothesis must explain every fit segment. Different hypotheses cannot
+explain mutually inconsistent segments separately. Validation is never fitted.
 Context:
 {context}

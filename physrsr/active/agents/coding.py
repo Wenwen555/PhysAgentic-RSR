@@ -28,6 +28,7 @@ class CodingService(AgentService):
             label="Task-source authoring",context=context)
 
     def call(self, method, params):
+        if method=="agent.describe" and not params:return self.descriptor()
         if method != "agent.synthesize_policy":
             raise APIError(f"Unknown coding operation: {method}")
         return self.synthesize_policy(params)

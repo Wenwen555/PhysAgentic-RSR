@@ -96,17 +96,10 @@ def main(argv=None):
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["status"] == "task_sufficient" else 2
     if args.command == "execute":
-        manifest = json.loads((args.bundle / "manifest.json").read_text())
-        world_accepted=(manifest.get("status")=="frozen" and manifest.get("one_shared_policy") is True
-            and manifest.get("recorded_world_cases",0)>0
-            and manifest.get("recorded_world_cases")==manifest.get("recorded_world_successes"))
-        if manifest.get("status") != "task_sufficient" and not world_accepted:
-            raise ValueError("Only a frozen policy with complete recorded acceptance can be executed")
-        policy = Policy.from_wire(dict(source=(args.bundle / "policy.py").read_text(),
-            sha256=manifest["sha256"], api_version=manifest["api_version"]))
-        result = HTTPClient(args.target_url).call("target.execute_policy", dict(policy=policy.wire()))
+        from .core.bundle import execute_bundle
+        result,code=execute_bundle(args.bundle,HTTPClient(args.target_url))
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result["status"] == "completed" else 2
+        return code
     from .api.server import serve
     if args.command == "serve-simulator":
         from .runtime.predictive import PredictiveSimulator

@@ -3,6 +3,7 @@
 This module does not choose experiments, update beliefs or execute programs.
 """
 import json
+import uuid
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, ValidationError
@@ -64,10 +65,28 @@ class AgentService:
         if self.recorder.root != self.output:
             raise ValueError("Agent recorder root must match output")
         self.turn=0
+        self.service_id=uuid.uuid4().hex
         if agent is None:
             from physrsr.coding.agent import CodexAgent
             agent=CodexAgent()
         self.agent=agent
+
+    def descriptor(self):
+        from ..core.provenance import file_hash
+        from ..core.paths import PROMPTS_ROOT
+        backend=self.agent
+        import inspect
+        source=inspect.getsourcefile(type(backend))
+        version=None
+        if type(backend).__module__=="physrsr.coding.agent":
+            import subprocess
+            try:version=subprocess.check_output(["codex","--version"],text=True,timeout=5).strip()
+            except (OSError,subprocess.SubprocessError):version="unavailable"
+        return dict(service_id=self.service_id,backend=type(backend).__module__+"."+type(backend).__name__,
+            backend_source_sha256=file_hash(source) if source and Path(source).is_file() else None,codex_version=version,
+            model=getattr(backend,"model",None),reasoning_effort=getattr(backend,"effort",None),
+            timeout_s=getattr(backend,"timeout",None),output=str(self.output),
+            prompts={path.name:file_hash(path) for path in sorted(PROMPTS_ROOT.glob("*.txt"))})
 
     def destination(self, prefix):
         self.turn+=1

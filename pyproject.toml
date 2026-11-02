@@ -21,4 +21,4 @@ namespaces = false
 "physrsr.active" = ["prompts/*.txt", "examples/*.json", "docs/*.md"]
 
 [tool.pytest.ini_options]
-testpaths = ["src/cap-x/tests/active"]
+testpaths = ["tests/active"]

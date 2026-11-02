@@ -71,6 +71,7 @@ class RolloutWorker:
         # from a cold solve.
         api.cfg = None
         tracker = PhaseTracker(env, api)
+        sim_start = None
         try:
             # Seed every RNG that drives episode initialisation (robot init
             # noise *and* object placement). See RodLift.seed_episode.
@@ -79,6 +80,7 @@ class RolloutWorker:
             sim_start = float(env.robosuite_env.sim.data.time)
             tracker.record_initial()
             program.run(env, tracker, self.physics)
+            ok, reason, step = self._evaluate_hold(env, tracker, getattr(program,"record_control_tick",None))
         except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
             return RolloutRecord(
                 case_id=self.physics.case_id,
@@ -91,9 +93,9 @@ class RolloutWorker:
                 grasp_established=tracker.grasp_established,
                 phases=tracker.as_dicts(),
                 duration_s=time.perf_counter() - start,
+                sim_duration_s=(float(env.robosuite_env.sim.data.time)-sim_start if sim_start is not None else None),
             )
 
-        ok, reason, step = self._evaluate_hold(env, tracker)
         return RolloutRecord(
             case_id=self.physics.case_id,
             program_id=program.id,
@@ -113,13 +115,14 @@ class RolloutWorker:
         return [self.rollout(program, seed, role=role) for seed in seeds]
 
     def _evaluate_hold(
-        self, env, tracker: PhaseTracker | None = None
+        self, env, tracker: PhaseTracker | None = None, sample=None
     ) -> tuple[bool, str, int | None]:
         """Hold the grasp and require the success state at every step."""
         rod = env.robosuite_env
         env._set_gripper(0.0)  # keep closed
         for step in range(self.hold_steps):
             env._step_once()
+            if sample is not None:sample()
             state_ok = True
             reason = ""
             if not rod._is_lifted():

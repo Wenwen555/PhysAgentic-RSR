@@ -18,7 +18,7 @@ uv pip install --python src/cap-x/.venv/bin/python 'jsonschema>=4.18,<5'
 uv pip install --python src/cap-x/.venv/bin/python --no-deps -e .
 src/cap-x/.venv/bin/python -m physrsr --help
 src/cap-x/.venv/bin/python -m physrsr.active validate-config physrsr/active/examples/rod_lift.json
-MUJOCO_GL=egl OPENBLAS_NUM_THREADS=1 src/cap-x/.venv/bin/python -m pytest src/cap-x/tests/active -q
+MUJOCO_GL=egl OPENBLAS_NUM_THREADS=1 src/cap-x/.venv/bin/python -m pytest tests/active -q
 ```
 
 新实验的输出、分析、结果报告和日志统一保存在 `/data/wjt/PhyAgent-RSR/output/<实验名>/`。

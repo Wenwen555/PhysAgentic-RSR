@@ -51,6 +51,15 @@ class PredictiveSimulator:
     def call(self, method, params):
         if method == "sim.describe" and not params:
             return self.descriptor()
+        if method == "sim.validate_task":
+            adapter=self.adapter(params["task"])
+            adapter.validate_task(params["task"])
+            import inspect
+            signature=inspect.signature(adapter.execute)
+            if "execution_budget" not in signature.parameters and not any(p.kind==p.VAR_KEYWORD for p in signature.parameters.values()):
+                raise APIError("Task adapter must replay recorded execution_budget inputs")
+            if params.get("models"):self.models(params["task"],params["models"])
+            return dict(valid=True,task_id=adapter.task_id)
         if method == "sim.configure":
             session_id = params["session_id"]
             if not session_id or session_id in self.sessions:
@@ -103,8 +112,9 @@ class PredictiveSimulator:
         rows, predictions = [], {}
         for model in models:
             for policy in policies:
+                execution={"execution_budget":params["execution_budget"]} if params.get("execution_budget") is not None else {}
                 outcomes = [adapter.execute(session["task"],model,policy,seed,belief,
-                    "policy" if method == "sim.evaluate" else "probe") for seed in seeds]
+                    "policy" if method == "sim.evaluate" else "probe",**execution) for seed in seeds]
                 expected_schema=SCENE_FEATURE_SCHEMA if session["object_ids"] is not None else FEATURE_SCHEMA
                 for outcome in outcomes:
                     if not outcome["observations"]:
@@ -123,7 +133,8 @@ class PredictiveSimulator:
                 else:
                     features = [response_features(o["observations"]) for o in outcomes]
                     predictions[model.id] = dict(features=[sum(x)/len(x) for x in zip(*features)],
-                        risk=max(o["risk"] for o in outcomes))
+                        risk=max(o["risk"] for o in outcomes),
+                        duration_s=sum(o.get("cost_s",0.)+(o.get("setup_cost_s") or 0.) for o in outcomes)/len(outcomes))
         return dict(model_version=session["version"],rows=rows) if method == "sim.evaluate" else dict(
             model_version=session["version"],predictions=predictions,policy_sha256=policies[0].sha256,
             feature_schema=SCENE_FEATURE_SCHEMA if session["object_ids"] is not None else FEATURE_SCHEMA)

@@ -4,8 +4,8 @@ import math
 from .contracts import finite
 from .scene import object_ids, check_objects
 
-FEATURE_SCHEMA = "measured_response_v2"
-SCENE_FEATURE_SCHEMA = "measured_scene_response_v1"
+FEATURE_SCHEMA = "measured_response_v3"
+SCENE_FEATURE_SCHEMA = "measured_scene_response_v2"
 FEATURE_NAMES = ("object_dx_m", "object_dy_m", "object_dz_m", "max_rotation_rad",
     "max_relative_translation_m", "max_force_change_n", "max_torque_change_nm",
     "max_rise_m", "peak_force_n", "peak_torque_nm", "mean_force_dx_n", "mean_force_dy_n",
@@ -18,12 +18,7 @@ def response_schema(observed):
 
 
 def response_features(samples):
-    """Concatenate every object's response in stable ID order for a scene.
-
-Keeping separate blocks prevents a prediction for one rod from explaining a
-different rod's movement. Wrist channels are shared measurements, not per-object
-force estimates. Single-object v2 projection is unchanged.
-"""
+    """Object pose blocks plus ONE shared wrist block, never duplicated sensors."""
     if not samples:
         raise ValueError("Measured prediction requires a trajectory")
     first = samples[0]["observation"]
@@ -36,9 +31,34 @@ force estimates. Single-object v2 projection is unchanged.
         if "objects" not in sample["observation"]:
             raise ValueError("Scene response lost its object tracks")
         check_objects(sample["observation"], ids)
-    return [value for key in ids for value in _object_features([
-        dict(observation=dict(sample["observation"], object=sample["observation"]["objects"][key]))
-        for sample in samples])]
+    blocks=[_object_features([dict(observation=dict(sample["observation"],
+        object=sample["observation"]["objects"][key])) for sample in samples]) for key in ids]
+    return [block[i] for block in blocks for i in OBJECT_CHANNELS]+[blocks[0][i] for i in SHARED_CHANNELS]
+
+
+OBJECT_CHANNELS = (0,1,2,3,4,7)
+SHARED_CHANNELS = (5,6,8,9,10,11,12,13,14,15)
+
+
+def scene_scales(scales, count):
+    if len(scales)!=len(FEATURE_NAMES):raise ValueError("Feature scales must contain 16 base channels")
+    return tuple(scales[i] for _ in range(count) for i in OBJECT_CHANNELS)+tuple(scales[i] for i in SHARED_CHANNELS)
+
+
+def time_mean(observations, channel, axis):
+    # Keep one value per physical instant. Extra observe() RPCs cannot increase
+    # dwell time or evidence strength. At a boundary the last measured state wins.
+    by_time={}
+    previous=-float("inf")
+    for observed in observations:
+        t=finite(observed["time_s"],"trajectory time")
+        if t<previous:raise ValueError("Trajectory timestamps must be nondecreasing")
+        previous=t
+        by_time[t]=finite(observed["wrench"][channel][axis])
+    points=list(by_time.items())
+    duration=points[-1][0]-points[0][0]
+    if duration==0:return points[-1][1]
+    return sum((t1-t0)*(v0+v1)*.5 for (t0,v0),(t1,v1) in zip(points,points[1:]))/duration
 
 
 def _object_features(samples):
@@ -67,6 +87,6 @@ def _object_features(samples):
         max(o["object"]["position"][2]-origin[2] for o in observations),
         max(math.sqrt(sum(x*x for x in f)) for f in force),
         max(math.sqrt(sum(x*x for x in t)) for t in torque),
-        *[sum(f[j]-force[0][j] for f in force)/len(force) for j in range(3)],
-        *[sum(t[j]-torque[0][j] for t in torque)/len(torque) for j in range(3)]]
+        *[time_mean(observations,"force_n",j)-force[0][j] for j in range(3)],
+        *[time_mean(observations,"torque_nm",j)-torque[0][j] for j in range(3)]]
     return [finite(v,"measured response") for v in values]

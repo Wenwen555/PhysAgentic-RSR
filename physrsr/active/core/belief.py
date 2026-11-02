@@ -1,8 +1,28 @@
 """Measured identification memory shared by the loop and replay tools."""
 import json
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-def merge_identification(previous,current,*,source_probe,evidence_id,checkpoint=None,program_sha256=None):
+class Estimate(BaseModel):
+    """Generated numerical evidence: values are finite and use explicit units/frames."""
+    model_config=ConfigDict(extra="allow",strict=True,allow_inf_nan=False)
+    name: Annotated[str,Field(min_length=1)]
+    value: float
+    interval: Annotated[list[float],Field(min_length=2,max_length=2)]
+    unit: Annotated[str,Field(min_length=1)]
+    frame: Annotated[str,Field(min_length=1)]
+    identifiable: bool
+    assumptions: Annotated[list[str],Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def ordered_interval(self):
+        if not self.interval[0]<=self.value<=self.interval[1]:
+            raise ValueError("Estimate interval must contain its value in increasing order")
+        return self
+
+
+def merge_identification(previous,current,*,source_probe,evidence_id,checkpoint=None,program_sha256=None,contracts=None):
     """Retain valid per-instance measurements independently of recovery status."""
     object_ids = previous.get("object_ids")
     if object_ids is not None:
@@ -14,6 +34,11 @@ def merge_identification(previous,current,*,source_probe,evidence_id,checkpoint=
     for estimate in current.get("estimates",[]):
         if estimate.get("identifiable") is not True:
             continue
+        json.dumps(estimate,allow_nan=False)
+        Estimate.model_validate(estimate)
+        if contracts is not None and (estimate["name"],estimate["unit"],estimate["frame"]) not in {
+                (item["name"],item["unit"],item["frame"]) for item in contracts}:
+            raise ValueError("Returned estimate quantity/unit/frame differs from the declared measurement contract")
         # A generated program may return the estimates it read from describe().
         # Those are retained evidence, not a second measurement of the object.
         if json.dumps(estimate,sort_keys=True) in known:

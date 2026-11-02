@@ -46,7 +46,7 @@ class ProbeAlternative(ContractModel):
 class ExperimentalDesign(ContractModel):
     manipulated_variables: Strings
     controlled_variables: Strings
-    minimum_distinct_settings: Annotated[int, Field(ge=2, le=9)]
+    minimum_distinct_settings: Annotated[int, Field(ge=1, le=9)]
     adaptive_next_setting: str
     discriminating_response: str
     sufficient_evidence_to_stop: str
@@ -75,6 +75,28 @@ class EstimatorOutput(ContractModel):
     interpretation: str
 
 
+class ValidationSetting(ContractModel):
+    object_id: str
+    tcp_offset_body_m: Annotated[list[float],Field(min_length=3,max_length=3)]
+    setting_tolerance_m: Annotated[float,Field(gt=0,le=.01)]
+    min_duration_s: Positive
+    min_translation_m: Nonnegative
+    min_object_translation_m: Nonnegative
+    min_rotation_rad: Nonnegative
+    min_rise_m: Nonnegative
+    min_force_change_n: Nonnegative
+
+
+class ValidationDesign(ContractModel):
+    candidate_sha256: str
+    object_ids: Strings
+    hypothesis_ids: Strings
+    alternative_explanation: str
+    task_operation: str
+    settings: Annotated[list[ValidationSetting],Field(min_length=1,max_length=9)]
+    max_prediction_error: Positive
+
+
 class ProbeDesign(ContractModel):
     observations: Annotated[list[ObservedFact], Field(min_length=1)]
     task_relevant_factors: Annotated[list[PhysicalFactor], Field(min_length=1)]
@@ -87,6 +109,7 @@ class ProbeDesign(ContractModel):
     code: str
     recovery: Strings
     limitations: Strings
+    validation: ValidationDesign | None
 
     @model_validator(mode="after")
     def check_analysis(self, info: ValidationInfo) -> ProbeDesign:
@@ -96,6 +119,16 @@ class ProbeDesign(ContractModel):
             available = available_evidence_ids(info.context)
             for fact in self.observations:
                 require_evidence(fact.evidence_ids, available)
+            if info.context.get("purpose")=="validation":
+                from .validation import validate_contract
+                validate_contract(self.validation.model_dump() if self.validation else None,info.context)
+                assert self.validation is not None
+                if len(self.validation.settings)<self.experimental_design.minimum_distinct_settings:
+                    raise ValueError("Validation settings do not cover the declared experimental design")
+            elif self.validation is not None:
+                raise ValueError("Fitting designs cannot claim independent validation")
+            elif self.experimental_design.minimum_distinct_settings<2:
+                raise ValueError("Identification requires at least two distinct settings")
         return self
 
 
@@ -131,6 +164,7 @@ class Interaction(ContractModel):
 class TaskDecision(ContractModel):
     action: Literal["probe", "execute_probe", "resume_probe", "repair_probe", "revise_policy", "stop", "validate"]
     rationale: str
+    value_basis: Literal["existing_candidates","new_structure","bootstrap","validation","none"]
     instance_assessments: Annotated[list[InstanceAssessment], Field(min_length=1)]
     target_instance_ids: list[str]
     interactions: list[Interaction]

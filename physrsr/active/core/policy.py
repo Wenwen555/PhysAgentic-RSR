@@ -46,8 +46,15 @@ class Policy:
 
     @property
     def behavior_sha256(self):
-        """Ignore comments/formatting when separating fit/validation actions."""
-        normalized = ast.dump(ast.parse(self.source), include_attributes=False)
+        """Only an obvious-duplicate check; executed interventions certify coverage."""
+        tree=ast.parse(self.source)
+        names={}
+        for node in ast.walk(tree):
+            if isinstance(node,ast.Name) and isinstance(node.ctx,ast.Store):
+                names.setdefault(node.id,f"local_{len(names)}")
+        for node in ast.walk(tree):
+            if isinstance(node,ast.Name) and node.id in names:node.id=names[node.id]
+        normalized = ast.dump(tree, include_attributes=False)
         return hashlib.sha256(normalized.encode()).hexdigest()
 
     def wire(self):
@@ -81,17 +88,30 @@ class PolicyStore:
                 old.splitlines(True), policy.source.splitlines(True), fromfile=policy.parent, tofile=policy.sha256)))
         self.policies[policy.sha256] = policy
 
-    def freeze(self, policy, destination, evidence, *, recorder=None):
+    def freeze(self, policy, destination, evidence, *, recorder=None, execution=None):
         recorder = recorder if recorder is not None else SessionRecorder(destination)
+        binding={}
+        if execution is not None:
+            from .bundle import BUNDLE_VERSION, content_hash
+            recorder.write_json("identification.json",execution["identification"])
+            recorder.write_json("task.json",execution["task"])
+            recorder.write_json("models.json",execution["models"])
+            recorder.write_json("config.json",execution["config"])
+            recorder.write_json("run_manifest.json",execution["run_manifest"])
+            binding=dict(bundle_version=BUNDLE_VERSION,world_identity=execution["world_identity"],
+                identification_sha256=content_hash(execution["identification"]),task_sha256=content_hash(execution["task"]),
+                models_sha256=content_hash(execution["models"]),model_version=execution["model_version"],
+                config_sha256=content_hash(execution["config"]),run_manifest_sha256=content_hash(execution["run_manifest"]),
+                runtime_contract=execution["runtime_contract"])
         # Copy exactly the bytes evaluated by the simulator; no sim/real branch.
         recorder.write_text("policy.py", policy.source)
         recorder.write_json("manifest.json", dict(
             sha256=policy.sha256, api_version=policy.api_version, entrypoint="run(robot)",
-            status="task_sufficient", evidence=evidence))
+            status="task_sufficient", evidence=evidence,**binding))
 
 
 def execute(policy, dispatch):
-    from physrsr.coding.runtime import execute_source
+    from physrsr.execution import execute_source
     if policy.api_version == IDENTIFICATION_API_VERSION:
         # The shared physical budget is 360 s; allow controller/transport
         # overhead on hardware without imposing a shorter hidden wall deadline.

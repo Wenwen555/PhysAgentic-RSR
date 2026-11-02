@@ -159,6 +159,9 @@ class PhaseTracker:
 
     def open_gripper(self) -> None:
         self.api.open_gripper()
+        self.closed = False
+        self.stage = "pre_grasp"
+        self._last_command = None
 
     def close_gripper(self) -> None:
         # The approach phase ends where the gripper starts closing.

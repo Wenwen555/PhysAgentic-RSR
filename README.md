@@ -13,12 +13,24 @@ git submodule update --init src/cap-x
 `src/cap-x` 固定引用本项目使用的修改版本，完整源码位于本仓库的 [cap-x 分支](https://github.com/Wenwen555/PhysAgentic-RSR/tree/cap-x)。
 该分支基于上游 [capgym/cap-x](https://github.com/capgym/cap-x/tree/53e9966d7a8e2fa7494676772bccc35280f5c0ed)，保留原项目许可证及第三方 submodule 声明，并包含本项目的仿真、控制接口修改和回归测试。
 
+GitHub 的自动 ZIP 不展开 submodule。ZIP 用户可先运行 `python3 tools/restore_dependencies.py`，
+按 [dependencies.lock.json](dependencies.lock.json) 恢复精确的 CaP-X 与必需 Robosuite 提交；已有不匹配目录会报错，不会被覆盖。
+其他可选依赖的版本也在清单内，用 `--include-optional` 显式恢复。
+项目自有测试位于主仓库 `tests/active/`，不依赖 ZIP 是否包含子模块的测试源码。
+
+维护者可从完整 checkout 导出带逐文件哈希和递归依赖内容清单的源码包：
+
+```bash
+src/cap-x/.venv/bin/python tools/export_source.py --out source_delivery
+# --include-capx 同时打包必需依赖的已跟踪源码/资源；模型权重和环境另行准备。
+```
+
 CaP-X 的依赖安装与第三方模块初始化见 [CaP-X README](src/cap-x/README.md) 和其 `.gitmodules`。第三方库按所需环境安装，虚拟环境、模型权重和运行输出不随本项目提交。
 
 准备好 CaP-X Python 环境后，在主仓库安装 PhysRSR：
 
 ```bash
-uv pip install --python src/cap-x/.venv/bin/python 'jsonschema>=4.18,<5'
+uv pip install --python src/cap-x/.venv/bin/python 'jsonschema>=4.18,<5' 'pydantic>=2.12,<3'
 uv pip install --python src/cap-x/.venv/bin/python --no-deps -e .
 src/cap-x/.venv/bin/python -m physrsr --help
 src/cap-x/.venv/bin/python -m physrsr validate-config physrsr/active/examples/rod_lift.json
@@ -41,9 +53,12 @@ src/cap-x/.venv/bin/python -m physrsr validate-config physrsr/active/examples/ro
 ## 离线检查
 
 ```bash
-MUJOCO_GL=egl src/cap-x/.venv/bin/python -m pytest src/cap-x/tests/active -q
+MUJOCO_GL=egl src/cap-x/.venv/bin/python -m pytest tests/active -q
 ```
 
 该测试集包含接口 fixtures、真实三杆场景编译、接触与物理步进检查，不调用 LLM、IK 服务或真机。只有显式执行相应实验命令才会开始交互。
 
 实验产物保存在本地输出目录；路径由 `physrsr.paths` 和项目 `AGENTS.md` 管理，不纳入 Git。
+
+运行清单、联合拟合、验证覆盖、冻结记忆和执行退出码见 [可靠性合同](physrsr/active/docs/reliability.md)。
+普通安装通过已安装 `capx` 包定位资源；也可设置 `PHYSRSR_CAPX_ROOT` 指向含 `capx/` 的依赖根目录。
