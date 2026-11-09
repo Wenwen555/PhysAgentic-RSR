@@ -1,0 +1,28 @@
+# =====================================================================
+# !! 评测专用: 当前双门 World 的物理真值 !!
+# 只允许评测脚本 (scripts/ + tests/) 读取, 用于最终指标计算;
+# 严禁被 planner / probes / identification / simulator 任何模块加载,
+# Planner 必须通过交互自行发现这些量 (研究方案第四节约定)。
+# =====================================================================
+door:
+  mass_kg: 12.0            # 门叶质量 (注意: 辨识直接得到的是绕铰链惯量)
+  hinge_damping: 0.4       # 门铰链阻尼 b_d
+  hinge_range_rad: [0.0, 1.508]
+
+handle:
+  spring_stiffness: 0.5    # N*m/rad, 回位弹簧刚度 k_h
+  damping: 0.08            # 把手阻尼 b_h
+  spring_ref_rad: 0.0      # 平衡位置 theta_h0
+
+latch:
+  unlock_threshold_rad: 0.556
+  bolt_stroke_m: 0.025     # 仅显式机构恢复目标, 见"两级重建目标"
+  handle_bolt_coupling: 0.045
+
+evaluation:
+  randomization:  # 组合随机化, 防某个固定 Probe 恰好适用于唯一一扇门
+    door_mass_kg: [6.0, 18.0]
+    hinge_damping: [0.2, 0.8]
+    unlock_threshold_rad: [0.35, 0.75]
+    handle_spring_stiffness: [0.2, 1.0]
+    latch_presence: [true, false]   # 机构存在性随机化

@@ -1,0 +1,50 @@
+# Mechanism Library: 世界中可能存在的物理机构 (研究方案 3.2 节)
+# 机构假设采用模板组合生成; 两者分开管理 —— probes.yaml 描述实验,
+# 本文件描述物理规律。
+mechanisms:
+  revolute_joint:
+    model_form: "旋转轴 + 角度 + 限位"
+    required_observations: [motion_trajectory]
+    mjcf_mapping: {joint.type: hinge, joint.axis: inferred, joint.range: estimated}
+
+  prismatic_joint:
+    model_form: "滑动轴 + 位移 + 限位"
+    required_observations: [motion_trajectory]
+    mjcf_mapping: {joint.type: slide}
+
+  torsional_spring:
+    model_form: "tau = -k * (theta - theta_0)"
+    required_observations: [angle_torque, release_trajectory]
+    mjcf_mapping: {joint.stiffness: k, joint.springref: theta_0}
+
+  friction_damping:
+    model_form: "tau_f = mu_c * sgn(qdot) + b * qdot"
+    required_observations: [multi_velocity_motion, external_force]
+    mjcf_mapping: {joint.frictionloss: mu_c, joint.damping: b}
+
+  coupled_joint:
+    model_form: "q2 = a * q1 + b"
+    required_observations: [correlated_motion]
+    mjcf_mapping: {equality.joint: couple}
+
+  latch_coupling:
+    model_form: "状态相关的运动约束: DoorOpenable <=> theta_h >= theta_unlock"
+    required_observations: [pull_under_handle_states]
+    mjcf_mapping: functional_latch   # 第一阶段功能性实现; 显式门栓后续升级
+
+  joint_stop:
+    model_form: "q in [q_min, q_max]"
+    required_observations: [boundary_force_displacement]
+    mjcf_mapping: {joint.range: estimated}
+
+  state_locked:
+    model_form: "离散锁定状态 (由 latch_coupling 触发解除)"
+    required_observations: [conditional_pull]
+    mjcf_mapping: functional_latch
+
+# 双门场景的初始假设模板 (与 planner/hypothesis.py 保持一致)
+hypothesis_templates:
+  H1_heavy_friction: {notes: 门未上锁, 但质量较大或摩擦较高}
+  H2_spring_damped: {notes: 门具有回位弹簧或阻尼机构}
+  H3_hidden_latch: {notes: 门存在由把手控制的隐藏闩锁}
+  H4_geometric_jam: {notes: 门被门框或其他几何结构卡住}

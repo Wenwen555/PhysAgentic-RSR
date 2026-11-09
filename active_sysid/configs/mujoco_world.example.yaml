@@ -1,0 +1,16 @@
+# MuJoCoBackEnd 构造示例 (backends.create_backend 的输入, 即 --world-config)
+# channel_map 只映射外部可观测关节; 隐藏门栓/等式约束不得进入映射。
+# 注意: MJCF 需声明 <compiler angle="radian"/> —— MuJoCo 默认 degree,
+# joint range 若按度解析 (如 1.508 deg = 0.026 rad), 门将几乎无法开启。
+backend: mujoco
+mjcf: worlds/reconstructed/unidoor_left.mjcf
+
+channel_map:
+  handle_angle: handle_hinge   # 规范通道名 -> MuJoCo joint 名
+  door_angle: door_hinge
+
+lever_arm: 0.4                 # 把手拉力 (N) -> 铰链扭矩 (N·m) 的杠杆长度
+
+gains:                         # 可选; 缺省用后端 DEFAULT_GAINS
+  handle: {kp: 40, kd: 4, cap: 30}
+  door: {kp: 120, kd: 12, cap: 60}

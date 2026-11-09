@@ -1,0 +1,105 @@
+# Physical Probe Library: 参数化动作模板 (研究方案 3.1 节)
+# 数值为 API 示例范围, 不是当前 World 的推荐控制参数; 实际执行时角度与
+# 力上限由机械臂能力、接触状态及上一次 Probe 的测量结果决定。
+probes:
+  - name: gentle_pull
+    description: 小力、低速拉动可操作部件
+    identifies: [locked, blocked, contact_valid]
+    default_params: {max_force: 10.0, duration: 1.0, speed: 0.05}
+    param_ranges:
+      max_force: [1.0, 40.0]
+      duration: [0.5, 3.0]
+      speed: [0.01, 0.2]
+    observations: [robot_joint_state, joint_torque, handle_pose, door_pose, contact_state]
+    info_gain: {structural: 0.4, parametric: 0.1}
+    cost: 1.0
+
+  - name: rotate_handle
+    description: 以不同角度缓慢旋转把手
+    identifies: [revolute_joint, torsional_stiffness, unlock_threshold]
+    default_params: {angle_span: 0.7, angular_speed: 0.3, duration: 2.0}
+    param_ranges:
+      angle_span: [0.1, 1.2]
+      angular_speed: [0.05, 1.0]
+      duration: [0.5, 5.0]
+    observations: [robot_joint_state, joint_torque, handle_pose, door_pose]
+    info_gain: {structural: 0.5, parametric: 0.4}
+    cost: 1.0
+
+  - name: hold_and_pull
+    description: 保持把手角度, 同时轻拉门叶 (区分"阻力大"与"状态控制的锁定")
+    identifies: [handle_door_coupling, latch, unlock_threshold]
+    default_params: {handle_angle: 0.4, pull_direction: door_normal, max_force: 10.0, duration: 1.0}
+    param_ranges:
+      handle_angle: [0.1, 1.0]
+      max_force: [1.0, 40.0]
+      duration: [0.5, 3.0]
+    observations: [robot_joint_state, joint_torque, handle_pose, door_pose, contact_state]
+    info_gain: {structural: 0.9, parametric: 0.3}
+    cost: 1.5
+
+  - name: release_and_observe
+    description: 放开受力部件, 记录回弹过程
+    identifies: [return_spring, damping, preload]
+    default_params: {hold_angle: 0.6, duration: 2.0}
+    param_ranges:
+      hold_angle: [0.1, 1.0]
+      duration: [0.5, 5.0]
+    observations: [robot_joint_state, joint_torque, handle_pose, door_pose]
+    info_gain: {structural: 0.3, parametric: 0.5}
+    cost: 1.0
+
+  - name: quasi_static_sweep
+    description: 低速、近似匀速开关门
+    identifies: [coulomb_friction, static_friction, kinematic_constraints]
+    default_params: {speed: 0.05, span: 0.5, duration: 3.0}
+    param_ranges:
+      speed: [0.01, 0.1]
+      span: [0.1, 1.2]
+      duration: [1.0, 10.0]
+    observations: [robot_joint_state, joint_torque, door_pose, contact_state]
+    info_gain: {structural: 0.2, parametric: 0.7}
+    cost: 1.5
+
+  - name: velocity_sweep
+    description: 以多个速度重复短程操作 (速度相关阻尼)
+    identifies: [viscous_damping, friction_model]
+    default_params: {speeds: [0.1, 0.3, 0.6], span: 0.3}
+    param_ranges:
+      span: [0.1, 0.8]
+    observations: [robot_joint_state, joint_torque, door_pose]
+    info_gain: {structural: 0.1, parametric: 0.8}
+    cost: 2.0
+
+  - name: acceleration_pulse
+    description: 可控的短加速度扰动 (转动惯量)
+    identifies: [inertia, equivalent_mass]
+    default_params: {accel: 2.0, duration: 0.3}
+    param_ranges:
+      accel: [0.5, 8.0]
+      duration: [0.1, 1.0]
+    observations: [robot_joint_state, joint_torque, door_pose]
+    info_gain: {structural: 0.1, parametric: 0.9}
+    cost: 2.0
+
+  - name: bidirectional_probe
+    description: 沿相反方向尝试运动 (单向限位/棘轮/止挡)
+    identifies: [unidirectional_limit, ratchet, contact_stop]
+    default_params: {span: 0.3, speed: 0.1}
+    param_ranges:
+      span: [0.05, 0.8]
+      speed: [0.02, 0.3]
+    observations: [robot_joint_state, joint_torque, door_pose, contact_state]
+    info_gain: {structural: 0.5, parametric: 0.3}
+    cost: 1.5
+
+  - name: limit_search
+    description: 逐步接近可动范围终点
+    identifies: [motion_limits, endstop_collision]
+    default_params: {step: 0.1, max_span: 1.4}
+    param_ranges:
+      step: [0.02, 0.3]
+      max_span: [0.2, 1.6]
+    observations: [robot_joint_state, joint_torque, door_pose, contact_state]
+    info_gain: {structural: 0.6, parametric: 0.3}
+    cost: 2.0

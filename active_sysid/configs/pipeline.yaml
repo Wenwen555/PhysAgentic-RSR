@@ -1,0 +1,31 @@
+# 主链路配置: Probe 评分权重 / 停止条件 / 特征提取阈值
+probe_loop:
+  max_probes: 12      # 硬上限 (正常应远早于此停止)
+  min_probes: 3       # 低于此数不做停止判定
+  stop:
+    predictive: true            # 仿真能预测保留 Probe 时可停
+    delta_cap_threshold: 0.05   # dV_CaP 改善低于该值则停止 (待接入)
+
+weights:  # a* = argmax [ lambda_s*IG_struct + lambda_p*IG_param + lambda_t*dV_CaP - lambda_c*C(a) ]
+  lambda_s: 1.0
+  lambda_p: 0.5
+  lambda_t: 0.0   # dV_CaP 占位, 接入 CaP 重放后启用
+  lambda_c: 0.1
+
+features:  # executor 特征提取阈值
+  door_immobile_eps: 0.02
+  handle_rotates_eps: 0.05
+  door_opens_eps: 0.20
+  return_ratio: 0.6
+
+validator:
+  thresholds:
+    traj_err: 0.10
+    force_err: 0.15
+    event_err: 0.0
+    min_heldout: 1
+
+cma_es:
+  loss_weights: {w_q: 1.0, w_F: 1.0, w_e: 1.0, lambda_reg: 0.001}
+  sigma0: 0.3
+  max_iter: 120

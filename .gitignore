@@ -1,0 +1,19 @@
+# 上游论文仓库 (嵌套 git repo, 见 README) 与大体量实验数据不进本仓库
+/agentic_rsr/
+/output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+
+# 实验产物
+active_sysid/runs/
+
+# 日志与临时文件
+*.log
+MUJOCO_LOG.TXT
