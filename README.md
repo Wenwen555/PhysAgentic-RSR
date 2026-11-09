@@ -2,10 +2,10 @@
 
 | 目录 | 内容 |
 | - | - |
-| `agentic_rsr/` | 上游论文代码库 (Real2Sim 重建与场景导出, 独立 git 仓库, 勿混入新代码) |
+| `agentic_rsr/` | 上游论文代码库 (git submodule -> github.com/HY-LiYihan/agentic_rsr；本地未提交的修改不在本仓库内) |
 | `active_sysid/` | 新研究框架: Task-Driven Active Physical System Identification (主动物理辨识闭环) |
 | `preview_tools/` | 双门 World 预览与对比脚本 |
-| `output/` | 重建/采集的中间输出 |
+| `output/` | 重建/采集的中间输出 (体积大, 仅保留在本地, 不入库) |
 
 新框架入口: [active_sysid/README.md](active_sysid/README.md) ·
 研究方案: [active_sysid/docs/research_plan.md](active_sysid/docs/research_plan.md)

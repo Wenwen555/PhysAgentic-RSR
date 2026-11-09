@@ -1,0 +1,3 @@
+[submodule "agentic_rsr"]
+	path = agentic_rsr
+	url = https://github.com/HY-LiYihan/agentic_rsr.git

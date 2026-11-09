@@ -1,5 +1,4 @@
-# 上游论文仓库 (嵌套 git repo, 见 README) 与大体量实验数据不进本仓库
-/agentic_rsr/
+# 大体量实验数据不进本仓库 (agentic_rsr 以 submodule 引用上游)
 /output/
 
 # Python
