@@ -1,50 +1,187 @@
-"""修复后仿真的预测验证: 重放保留的 Probe + 未见交互预测。
 
-验证内容 (研究方案第十节链路): 更新 MJCF -> 重放 Probe -> 预测未见过的
-交互 -> 验证 CaP。预测报告中的三类误差对应 CMA-ES 损失的 L_q / L_F / L_e。
-
-当前 predictive 判定是占位逻辑 (结构辨识出闩锁 + 达到最少 Probe 数);
-真实实现需在修复后的仿真中重放 held-out Probe 计算轨迹/力/事件误差。
-"""
+"""M1: 使用独立 Probe 实测修复后的预测性能。"""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
+import numpy as np
+
+from active_sysid.backends import create_backend
 from active_sysid.config import require_section
 from active_sysid.types import Evidence, MechanismHypothesis
 
 
 @dataclass
 class PredictionReport:
-    traj_err: float = float("inf")   # L_q: 未见 Probe 轨迹预测误差
-    force_err: float = float("inf")  # L_F: 力预测误差
-    event_err: float = float("inf")  # L_e: 锁定/解锁/限位等事件不一致
-    predictive: bool = False
+    traj_err: float = float("inf")
 
-    def to_dict(self):
+    # 当前 object-space 后端没有真实接触外力观测。
+    force_err: float | None = None
+
+    # 可观测的开门状态分类错误率。
+    event_err: float = float("inf")
+
+    structure_predictive: bool = False
+    predictive: bool = False
+    n_heldout: int = 0
+
+    cases: list[dict[str, Any]] = field(
+        default_factory=list
+    )
+
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class Validator:
-    """误差阈值只以 configs/pipeline.yaml 的 validator.thresholds 段为真值。"""
+    REQUIRED_THRESHOLDS = (
+        "traj_err",
+        "force_err",
+        "event_err",
+        "min_heldout",
+    )
 
-    REQUIRED_THRESHOLDS = ("traj_err", "force_err", "event_err", "min_heldout")
-
-    def __init__(self, thresholds: dict[str, float] | None = None):
+    def __init__(
+        self,
+        thresholds: dict[str, float] | None = None,
+    ):
         self.thresholds = require_section(
-            thresholds, self.REQUIRED_THRESHOLDS, "validator.thresholds"
+            thresholds,
+            self.REQUIRED_THRESHOLDS,
+            "validator.thresholds",
         )
 
-    def evaluate(self, sim_path, model: MechanismHypothesis,
-                 heldout: list[Evidence]) -> PredictionReport:
-        # TODO: 加载 sim_path (修复后的 MJCF), 重放 heldout Probe,
-        #   与 world 轨迹/力/事件比对, 填充以下三个误差。
-        latch_found = (
-            "latch_coupling" in model.structure.get("handle", [])
-            and model.params.get("theta_unlock") is not None
+    def evaluate(
+        self,
+        sim_path: str | Path | None,
+        model: MechanismHypothesis,
+        heldout: list[Evidence],
+        *,
+        backend_spec: dict[str, Any] | None = None,
+        door_opens_eps: float | None = None,
+    ) -> PredictionReport:
+
+        if (
+            sim_path is None
+            or backend_spec is None
+            or door_opens_eps is None
+        ):
+            return PredictionReport(
+                n_heldout=len(heldout)
+            )
+
+        sim_path = Path(sim_path)
+
+        spec = dict(backend_spec)
+        spec["mjcf"] = str(sim_path)
+
+        # 加载本次修复生成的后端参数。
+        sidecar = sim_path.with_suffix(
+            sim_path.suffix + ".repair.json"
         )
-        predictive = latch_found and len(heldout) >= self.thresholds["min_heldout"]
+
+        if sidecar.exists():
+            repair = json.loads(
+                sidecar.read_text(encoding="utf-8")
+            )
+            if "latch" in repair:
+                spec["latch"] = repair["latch"]
+
+        simulator = create_backend(spec)
+
+        cases = []
+
+        for evidence in heldout:
+            reference = evidence.trajectory
+
+            predicted = simulator.run_probe(
+                evidence.probe
+            )
+
+            np.testing.assert_allclose(
+                reference.t,
+                predicted.t,
+                atol=1e-9,
+                rtol=0,
+            )
+
+            door_mae = float(
+                np.mean(
+                    np.abs(
+                        predicted.channels["door_angle"]
+                        - reference.channels["door_angle"]
+                    )
+                )
+            )
+
+            handle_mae = float(
+                np.mean(
+                    np.abs(
+                        predicted.channels["handle_angle"]
+                        - reference.channels["handle_angle"]
+                    )
+                )
+            )
+
+            actual_opens = bool(
+                evidence.summary["door_opens"]
+            )
+
+            predicted_opens = bool(
+                predicted.channels["door_angle"].max()
+                > door_opens_eps
+            )
+
+            cases.append({
+                "probe": evidence.probe.key(),
+                "world_opens": actual_opens,
+                "sim_opens": predicted_opens,
+                "door_mae": door_mae,
+                "handle_mae": handle_mae,
+                "opens_mismatch": (
+                    actual_opens != predicted_opens
+                ),
+            })
+
+        if not cases:
+            return PredictionReport()
+
+        traj_err = float(
+            np.mean([
+                0.5 * (
+                    c["door_mae"] + c["handle_mae"]
+                )
+                for c in cases
+            ])
+        )
+
+        event_err = float(
+            np.mean([
+                c["opens_mismatch"]
+                for c in cases
+            ])
+        )
+
+        structure_predictive = (
+            len(cases)
+            >= self.thresholds["min_heldout"]
+            and event_err
+            <= self.thresholds["event_err"]
+        )
+
         return PredictionReport(
-            traj_err=0.0, force_err=0.0, event_err=0.0, predictive=predictive,
+            traj_err=traj_err,
+            event_err=event_err,
+            structure_predictive=structure_predictive,
+
+            # M1 尚未验证接触力预测和完整动力学。
+            predictive=False,
+
+            n_heldout=len(cases),
+            cases=cases,
         )
+

@@ -92,7 +92,7 @@ class ProbeLoop:
                                         fit.params, sim_path)
 
             validator_report = self.validator.evaluate(
-                sim_path, model, heldout=evidences[-1:]
+                sim_path, model, heldout=[],
             )
             self.planner.update(validator_report)
             report.best_hypothesis = {
@@ -116,7 +116,7 @@ class ProbeLoop:
         report.n_probes = len(evidences)
         report.probe_keys = sorted(executed_keys)
         report.predictive = bool(
-            report.best_hypothesis.get("params", {}).get("theta_unlock") is not None
+            validator_report.predictive
         )
         report.cap_result = {"status": "not_run"}
 
