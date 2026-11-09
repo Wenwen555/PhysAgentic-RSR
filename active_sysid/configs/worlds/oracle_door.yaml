@@ -1,0 +1,12 @@
+# oracle World (真值场景) 的后端构造: 与 reconstructed_door.yaml 仅 mjcf 与
+# latch 段不同, channel_map / 杠杆臂 / 增益完全一致 —— 同一 ProbeSpec 在两
+# 场景动作语义相同。锁定状态是隐藏机构, 不进入 channel_map。
+backend: mujoco
+mjcf: worlds/oracle/oracle_door.mjcf
+channel_map:
+  handle_angle: handle_hinge
+  door_angle: door_hinge
+lever_arm: 0.4
+latch:                        # 功能性闩锁 (FunctionalLatchWorld)
+  unlock_threshold: 0.556     # World 真值, 与 eval_truth.yaml 一致; 辨识链路禁读本文件
+  relock_door_eps: 0.05

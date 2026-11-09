@@ -32,9 +32,11 @@ from active_sysid.backends.probe_actions import build_profile
 # 执行目标名 -> 规范通道名 (channel_map 的键)
 TARGET_CHANNEL = {"handle": "handle_angle", "door": "door_angle"}
 
-# object-space PD 增益与扭矩上限 (驱动层默认; 场景级覆盖走后端构造参数)
+# object-space PD 增益与扭矩上限 (驱动层默认; 场景级覆盖走后端构造参数)。
+# 把手是很轻的机构 (~0.1 kg), 增益/上限须在小 N·m 量级, 否则会把关节打飞。
+# TODO: 重建场景若出现极轻门叶 (0.25 kg), door 的 position 模式增益同样需按场景下调
 DEFAULT_GAINS: dict[str, dict[str, float]] = {
-    "handle": {"kp": 40.0, "kd": 4.0, "cap": 30.0},
+    "handle": {"kp": 8.0, "kd": 0.8, "cap": 3.0},
     "door": {"kp": 120.0, "kd": 12.0, "cap": 60.0},
 }
 
@@ -51,8 +53,11 @@ class MuJoCoBackEnd(BaseWorld):
 
         self._mj = mj
         self.model = mj.MjModel.from_xml_path(str(mjcf))
+        if dt is not None:
+            self.model.opt.timestep = float(dt)
+        
         self.data = mj.MjData(self.model)
-        self.dt = float(dt or self.model.opt.timestep)
+        self.dt = float(self.model.opt.timestep)
         self.lever_arm = float(lever_arm)
 
         self.gains = {k: dict(v) for k, v in DEFAULT_GAINS.items()}

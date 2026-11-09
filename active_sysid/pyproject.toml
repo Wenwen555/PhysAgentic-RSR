@@ -12,6 +12,7 @@ dependencies = ["numpy>=1.24", "pyyaml>=6"]
 [project.optional-dependencies]
 opt = ["cma>=3"]          # CMA-ES 参数拟合
 sim = ["mujoco>=3.2.7"]   # MJCF 编辑 + rollout 验证
+plot = ["matplotlib>=3.7"]  # 基线/实验曲线图
 dev = ["pytest>=8"]
 
 [tool.setuptools.packages.find]

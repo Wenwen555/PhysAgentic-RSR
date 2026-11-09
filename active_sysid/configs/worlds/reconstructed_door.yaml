@@ -1,0 +1,7 @@
+# 重建预测 Simulator 的后端构造 (与 oracle_door.yaml 保持相同接口约定)。
+backend: mujoco
+mjcf: worlds/reconstructed/reconstructed_door.mjcf
+channel_map:
+  handle_angle: handle_hinge
+  door_angle: door_hinge
+lever_arm: 0.4

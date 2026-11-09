@@ -37,7 +37,7 @@ DOOR_XML = """
               pos="0.4 0 1.05" density="180"/>
         <body name="handle" pos="0.75 0 1.0">
           <joint name="handle_hinge" type="hinge" axis="0 0 1"
-                 range="-1.2 1.2" damping="0.08" stiffness="0.5" springref="0"/>
+                 range="-1.2 1.2" damping="0.08" stiffness="0.5" springref="0" armature="0.01"/>
           <!-- 把手与门叶几何交叠是建模伪影, 关闭其碰撞参与 (质量/惯量保留) -->
           <geom name="handle_bar" type="capsule" size="0.015 0.06"
                 fromto="0 0 -0.08 0 0 0.08" density="800"

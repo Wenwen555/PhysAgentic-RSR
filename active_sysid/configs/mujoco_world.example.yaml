@@ -12,5 +12,5 @@ channel_map:
 lever_arm: 0.4                 # 把手拉力 (N) -> 铰链扭矩 (N·m) 的杠杆长度
 
 gains:                         # 可选; 缺省用后端 DEFAULT_GAINS
-  handle: {kp: 40, kd: 4, cap: 30}
+  handle: {kp: 8, kd: 0.8, cap: 3}    # 把手为轻机构, 增益保持小 N·m 量级
   door: {kp: 120, kd: 12, cap: 60}

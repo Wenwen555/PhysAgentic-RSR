@@ -37,11 +37,23 @@ def build_profile(probe: ProbeSpec) -> Profile:
     if name == "hold_and_pull":
         angle = float(p.get("handle_angle", 0.4))
         force = float(p.get("max_force", 10.0))
-        ramp = max(duration / 4.0, 1e-6)
-        return lambda t: {
-            "handle": ("position", min(angle * t / ramp, angle)),
-            "door": ("force", force),
-        }
+        
+        ramp = duration * 0.3
+        pull_start = duration * 0.5
+        
+        def profile(t: float) -> dict[str, ModeValue]:
+            return {
+                "handle": (
+                    "position",
+                    angle * min(t / ramp, 1.0),
+                ),
+                "door": (
+                    "force",
+                    force if t >= pull_start else 0.0,
+                ),
+            }
+            
+        return profile
 
     if name == "release_and_observe":
         hold = float(p.get("hold_angle", 0.6))

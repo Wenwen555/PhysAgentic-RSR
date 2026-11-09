@@ -1,0 +1,44 @@
+<mujoco model="oracle_door">
+  <!-- World 真值场景 (左门): 隐藏闩锁 + 真实物理参数。
+       真值数值另记录在 configs/eval_truth.yaml (仅评测用, 辨识器禁读)。
+
+       闩锁采用功能性实现 (研究方案 7.1 第一阶段):
+         latch_weld 默认激活, backends.FunctionalLatchWorld 逐帧根据
+         "门接近关闭 且 把手角 < 解锁阈值(0.556 rad)" 开关该 weld。
+         显式门栓机构 (bolt + strike + 耦合等式) 为后续升级路径 —— 直接
+         建模时注意: 径向滑动门栓 + 切向阻挡法向 在门角~0 处构成近奇异
+         约束, 门受压后 equality 无法回拉门栓 (见 docs/m0_baseline.md)。 -->
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.005"/>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="2 2 0.1"/>
+    <body name="frame" pos="0 0 0">
+      <geom name="post" type="box" size="0.05 0.05 1.0" pos="-0.06 0 1.0"/>
+
+      <body name="door" pos="0 0 0">
+        <joint name="door_hinge" type="hinge" axis="0 0 1"
+               range="0 1.508" damping="0.4" frictionloss="0.1"/>
+        <!-- 12 kg 门叶: 0.8x0.04x2.0 m = 0.064 m^3, density 187.5 -->
+        <geom name="door_leaf" type="box" size="0.4 0.02 1.0"
+              pos="0.4 0 1.05" density="187.5"/>
+
+        <body name="handle" pos="0.75 0 1.0">
+          <!-- armature 等效把手连杆的反射惯量; 两场景取值一致, 避免轻惯量
+               关节上的 object-space PD 离散失稳 (见 docs/m0_baseline.md) -->
+          <joint name="handle_hinge" type="hinge" axis="0 0 1"
+                 range="-1.2 1.2" damping="0.08" stiffness="0.5" springref="0"
+                 armature="0.01"/>
+          <geom name="handle_bar" type="capsule" size="0.015 0.06"
+                fromto="0 0 -0.08 0 0 0.08" density="800"
+                contype="0" conaffinity="0"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld name="latch_weld" body1="door" body2="frame" active="true"
+          solref="0.01 1" solimp="0.98 0.999 0.001"/>
+  </equality>
+</mujoco>

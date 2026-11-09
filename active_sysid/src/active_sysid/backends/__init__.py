@@ -31,8 +31,13 @@ def create_backend(spec: dict[str, Any]) -> BaseWorld:
     if kind == "mujoco":
         from active_sysid.backends.mujoco_backend import MuJoCoBackEnd
 
+        cls = MuJoCoBackEnd
         kwargs = {k: spec[k] for k in ("lever_arm", "gains", "dt") if k in spec}
-        return MuJoCoBackEnd(
+        if "latch" in spec:  # 功能性闩锁 (oracle 场景): 离散锁定状态
+            from active_sysid.backends.latch import FunctionalLatchWorld
+            cls = FunctionalLatchWorld
+            kwargs.update(spec["latch"])
+        return cls(
             mjcf=spec["mjcf"],
             channel_map=spec.get("channel_map", DEFAULT_CHANNEL_MAP),
             **kwargs,
