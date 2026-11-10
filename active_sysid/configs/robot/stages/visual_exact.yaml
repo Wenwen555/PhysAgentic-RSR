@@ -1,0 +1,14 @@
+stage: visual_exact
+role: development_sim
+simulator: unidoor
+sim_variant: robot_m2
+mechanism: lever
+observations: visual
+visual_cameras:
+- overview
+- robot0_eye_in_hand
+seeds:
+- 0
+max_steps: 30000
+goal_angle_rad: 0.3
+randomization: {}

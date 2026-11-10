@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def package(m2_dir: Path, out: Path):
     config = yaml.safe_load(
         (
-            ROOT / "configs/worlds/reconstructed_door.yaml"
+            ROOT / "configs/worlds/legacy_object_space/reconstructed_door.yaml"
         ).read_text()
     )
     config["mjcf"] = "models/repaired_m2.mjcf"

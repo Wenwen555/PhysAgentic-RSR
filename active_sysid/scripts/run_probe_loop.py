@@ -4,7 +4,7 @@
     python scripts/run_probe_loop.py --backend mock
 
     # MuJoCo 后端 (object-space 直驱; channel_map 等见 configs/mujoco_world.example.yaml)
-    python scripts/run_probe_loop.py --backend mujoco --mjcf worlds/reconstructed/x.mjcf
+    python scripts/run_probe_loop.py --backend mujoco --mjcf worlds/legacy_object_space/reconstructed/x.mjcf
     python scripts/run_probe_loop.py --backend mujoco --world-config my_world.yaml
 """
 

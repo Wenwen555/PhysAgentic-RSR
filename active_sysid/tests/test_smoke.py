@@ -104,7 +104,7 @@ def test_components_require_config_sections():
 
 def test_model_editor_writes_repair_sidecar(tmp_path):
     src = (
-        ROOT / "worlds/reconstructed"
+        ROOT / "worlds/legacy_object_space/reconstructed"
         / "reconstructed_door.mjcf"
     )
     out = ModelEditor().apply(

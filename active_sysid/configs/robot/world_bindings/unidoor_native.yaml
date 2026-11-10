@@ -1,0 +1,32 @@
+# Source World interface. This is NOT the Panda single-door fixture.
+scene: assets/reference_world/unidoor_native/scene.xml
+home_keyframe: home
+arm_joints: [robot0_joint1, robot0_joint2, robot0_joint3, robot0_joint4, robot0_joint5, robot0_joint6, robot0_joint7]
+arm_actuators: [robot0_torq_j1, robot0_torq_j2, robot0_torq_j3, robot0_torq_j4, robot0_torq_j5, robot0_torq_j6, robot0_torq_j7]
+finger_joints: [gripper0_finger_joint1, gripper0_finger_joint2]
+finger_actuators: [gripper0_gripper_finger_joint1, gripper0_gripper_finger_joint2]
+finger_bodies: [gripper0_leftfinger, gripper0_rightfinger]
+tcp_site: tool_tip
+wrist_force_sensor: gripper0_force_ee
+wrist_torque_sensor: gripper0_torque_ee
+# The right-side lever door; the round door is preserved and left unactuated.
+target: lever
+mechanisms:
+  lever:
+    door_joint: lever_door_hinge
+    handle_joint: lever_handle_hinge
+    bolt_joint: lever_bolt_joint
+    door_body: lever_door
+    handle_body: lever_handle
+    handle_geom: lever_handle_collision
+    bolt_body: lever_bolt
+    constraint: lever_handle_bolt
+  round:
+    door_joint: round_door_hinge
+    handle_joint: round_handle_hinge
+    bolt_joint: round_bolt_joint
+    door_body: round_door
+    handle_body: round_handle
+    handle_geom: round_handle_collision
+    bolt_body: round_bolt
+    constraint: round_handle_bolt

@@ -8,7 +8,7 @@ import pytest
 
 mj = pytest.importorskip("mujoco")
 
-from active_sysid.backends.robot_mechanism import apply_mechanism
+from active_sysid.robot.mechanism import apply_mechanism
 from active_sysid.planner.hypothesis import HypothesisSet
 from active_sysid.simulator.model_editor import ModelEditor
 
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_import_fitted_mechanism_preserves_robot_and_contact_layer(tmp_path):
     hypothesis = HypothesisSet.initial_door_hypotheses().get("H3_hidden_latch")
     source_path = ModelEditor().apply(
-        ROOT / "worlds/reconstructed/reconstructed_door.mjcf",
+        ROOT / "worlds/legacy_object_space/reconstructed/reconstructed_door.mjcf",
         hypothesis,
         {"I_d": 2.6, "b_d": 0.42, "mu_d": 0.11, "k_h": 0.51,
          "b_h": 0.081, "theta_h0": 0.12, "theta_unlock": 0.59},

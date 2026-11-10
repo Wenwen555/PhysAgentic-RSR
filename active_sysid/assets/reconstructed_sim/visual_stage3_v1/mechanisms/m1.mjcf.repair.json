@@ -1,0 +1,30 @@
+{
+  "source": "/home/wen/experiment/PhyAgent-RSR/active_sysid/worlds/reconstructed/reconstructed_door.mjcf",
+  "hypothesis": "H3_hidden_latch",
+  "structure": {
+    "door": [
+      "friction_damping",
+      "revolute_joint",
+      "state_locked"
+    ],
+    "handle": [
+      "revolute_joint",
+      "torsion_spring",
+      "latch_coupling"
+    ]
+  },
+  "params": {
+    "I_d": 3.0,
+    "b_d": 0.12,
+    "k_h": 0.15,
+    "b_h": 0.03,
+    "theta_h0": 0.0,
+    "theta_unlock": 0.5617619734137613
+  },
+  "repair_mode": "functional_latch",
+  "notes": "conditional mobility: theta_unlock in [0.5529, 0.5706] rad",
+  "latch": {
+    "unlock_threshold": 0.5617619734137613,
+    "latch_weld": "latch_weld"
+  }
+}

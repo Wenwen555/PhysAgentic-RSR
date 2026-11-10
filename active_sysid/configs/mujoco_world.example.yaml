@@ -3,7 +3,7 @@
 # 注意: MJCF 需声明 <compiler angle="radian"/> —— MuJoCo 默认 degree,
 # joint range 若按度解析 (如 1.508 deg = 0.026 rad), 门将几乎无法开启。
 backend: mujoco
-mjcf: worlds/reconstructed/unidoor_left.mjcf
+mjcf: worlds/legacy_object_space/reconstructed/unidoor_left.mjcf
 
 channel_map:
   handle_angle: handle_hinge   # 规范通道名 -> MuJoCo joint 名

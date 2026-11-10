@@ -1,0 +1,39 @@
+stage: visual_randomized
+role: development_sim
+simulator: unidoor
+sim_variant: robot_m2
+mechanism: lever
+observations: visual
+visual_cameras:
+- overview
+- robot0_eye_in_hand
+seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+max_steps: 30000
+goal_angle_rad: 0.3
+randomization:
+  door_damping:
+  - 0.7
+  - 1.3
+  door_frictionloss:
+  - 0.7
+  - 1.3
+  handle_damping:
+  - 0.7
+  - 1.3
+  handle_stiffness:
+  - 0.7
+  - 1.3
+  handle_contact_friction:
+  - 0.75
+  - 1.25
+  illumination:
+  - 0.8
+  - 1.2

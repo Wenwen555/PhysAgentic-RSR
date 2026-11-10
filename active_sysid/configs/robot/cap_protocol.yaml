@@ -1,0 +1,7 @@
+# Reuses the experiment-management protocol from legacy CaP Stage 3.
+# The actuator/runtime is now Robot-Space, not object-space.
+stage: visual_randomized
+sim_variant: robot_m2
+revisions_max: 3
+development_seeds: [12001, 12002, 12003, 12004, 12005, 12006, 12007, 12008, 12009, 12010, 12011, 12012, 12013, 12014, 12015, 12016, 12017, 12018, 12019, 12020]
+independent_acceptance_seeds: [91201, 91202, 91203, 91204, 91205, 91206, 91207, 91208, 91209, 91210, 91211, 91212, 91213, 91214, 91215, 91216, 91217, 91218, 91219, 91220, 91221, 91222, 91223, 91224, 91225, 91226, 91227, 91228, 91229, 91230]

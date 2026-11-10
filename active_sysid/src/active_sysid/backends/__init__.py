@@ -22,7 +22,7 @@ DEFAULT_CHANNEL_MAP = {"handle_angle": "handle_hinge", "door_angle": "door_hinge
 def create_backend(spec: dict[str, Any]) -> BaseWorld:
     """由配置构造后端 (configs/mujoco_world.example.yaml 即本函数的输入示例):
 
-        {"backend": "mujoco", "mjcf": "worlds/reconstructed/x.mjcf",
+        {"backend": "mujoco", "mjcf": "worlds/legacy_object_space/reconstructed/x.mjcf",
          "channel_map": {"handle_angle": "handle_hinge", ...}}
     """
     kind = spec.get("backend")

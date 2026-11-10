@@ -1,0 +1,30 @@
+{
+  "source": "runs/m1_structure_20261109_175027/repaired_door.mjcf",
+  "hypothesis": "H3_hidden_latch",
+  "structure": {
+    "door": [
+      "revolute_joint",
+      "friction_damping"
+    ],
+    "handle": [
+      "revolute_joint",
+      "torsion_spring",
+      "latch_coupling"
+    ]
+  },
+  "params": {
+    "I_d": 2.6525360216969607,
+    "b_d": 0.17620448618995108,
+    "k_h": 0.4999857729740144,
+    "b_h": 0.08000060542905263,
+    "theta_h0": 0.0,
+    "theta_unlock": 0.5617619734137613,
+    "mu_d": 0.08948890716232687
+  },
+  "notes": "门存在由把手控制的隐藏闩锁",
+  "repair_mode": "functional_latch",
+  "latch": {
+    "unlock_threshold": 0.5617619734137613,
+    "latch_weld": "latch_weld"
+  }
+}

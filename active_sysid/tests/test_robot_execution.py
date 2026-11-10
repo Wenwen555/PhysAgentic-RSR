@@ -3,10 +3,10 @@ import numpy as np
 import pytest
 
 pytest.importorskip("mujoco")
-from active_sysid.backends.robot_door_backend import RobotDoorBackend
-from active_sysid.cap.robot_controller import ExecutionError
-from active_sysid.cap.robot_runtime import RobotRuntime
-from policies.robot.fixed_open_door import run, reach_and_grasp
+from active_sysid.robot.fixture_backend import RobotDoorBackend
+from active_sysid.robot.controller import ExecutionError
+from active_sysid.robot.runtime import RobotRuntime
+from active_sysid.robot.fixture_policy import run, reach_and_grasp
 
 
 def test_robot_contact_execution():

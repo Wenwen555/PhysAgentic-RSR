@@ -36,7 +36,7 @@ def run(
 ):
     config = yaml.safe_load(
         (
-            ROOT / "configs/worlds/reconstructed_door.yaml"
+            ROOT / "configs/worlds/legacy_object_space/reconstructed_door.yaml"
         ).read_text()
     )
 

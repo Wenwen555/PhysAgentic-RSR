@@ -1,0 +1,10 @@
+# Text OBJ meshes are asset payloads, not reviewable source-code diffs.
+active_sysid/assets/**/*.obj binary
+active_sysid/assets/**/*.stl binary
+active_sysid/assets/**/*.png binary
+active_sysid/assets/**/*.jpg binary
+active_sysid/assets/**/*.jpeg binary
+active_sysid/assets/**/*.webp binary
+# Review code, manifests and config; collapse generated binary/mesh payloads.
+active_sysid/assets/**/resources/* linguist-generated
+active_sysid/assets/fixtures/**/assets/* linguist-generated

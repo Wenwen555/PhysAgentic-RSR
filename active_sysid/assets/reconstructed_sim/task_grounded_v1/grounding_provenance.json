@@ -1,0 +1,100 @@
+{
+  "model_family": "robot_probe_task_surrogate",
+  "task": "lever-door contact opening",
+  "old_object_space_M1_M2_parameters_used": false,
+  "source_robot": "unidoor_reconstructed_v1",
+  "bootstrap": "public robot-only contact demonstration",
+  "not_claimed": "from-scratch visual localization or recovery of hidden World lock",
+  "probe_evidence": {
+    "contact": {
+      "directory": "runs/robot_grounding/probes/contact",
+      "observations_sha256": "dfbe7927a788c62c0cfff8aa76d0c704319ed08fe73b711cade2c29a361bcbb3",
+      "policy_sha256": "2d0678adfa47911958e247333ec2e26d6eaf7aa27cb916a3c645e601ce2b7f94"
+    },
+    "direct": {
+      "directory": "runs/robot_grounding/probes/direct",
+      "observations_sha256": "47107b24cf7058681eb73f308beff9a308e08d7841dbb463b52d592128ce396c",
+      "policy_sha256": "62dda55704bddae5517879eae830b6c0059e930fcd130719f92bba0d26f3b04d"
+    },
+    "rotate100": {
+      "directory": "runs/robot_grounding/probes/rotate100",
+      "observations_sha256": "b28b9ec2b67e0590f8e2a1870c0e6b1f96173206bb1720c3a7911639d9b5c829",
+      "policy_sha256": "9988e8e63d8cccf1afbcfbd4e13f1d58872a42f06b1e7076b08f56b40b636557"
+    },
+    "rotate015": {
+      "directory": "runs/robot_grounding/probes/rotate015",
+      "observations_sha256": "211858e9e353e1e43b4e0a9a32e20ebb6eef4f751a2502f1b1d67e45d2c19c74",
+      "policy_sha256": "7b34141a0313b2b0752dbc43f604fcafccddc34385d780fe5e0f07ef08fd358b"
+    },
+    "rotate035": {
+      "directory": "runs/robot_grounding/probes/rotate035",
+      "observations_sha256": "7c0cfe83b3cd7a60050ee481d6327ae2896326306edb67f937655eaa8a286321",
+      "policy_sha256": "da6370c5d1b1f6d1ca2ae2a00bd67d994f520ca3a5a3e9328b77822d95e6e58d"
+    },
+    "heldout_direct": {
+      "directory": "runs/robot_grounding/probes/heldout_direct",
+      "observations_sha256": "52c4053b8313aeb49af2a64e45c4fad3948677f0a3c51de56ed805ea34a5af62",
+      "policy_sha256": "225c92b284c0df5610e808ebf916f8641a0c5556c39b37e1c0c3732de01879d2"
+    },
+    "heldout_rotate045": {
+      "directory": "runs/robot_grounding/probes/heldout_rotate045",
+      "observations_sha256": "736026579ca3bb97eb97697958ebaa3fbbe303925df84fbce95f4951a8315e94",
+      "policy_sha256": "2494461510b3b2350fabddd83dd58562e803f657a3625febf99c5bc662a47c51"
+    },
+    "arc_r65": {
+      "directory": "runs/robot_grounding/probes/arc_r65",
+      "observations_sha256": "9d4dd70741d80ecb0ebdfda8857d22ef6e92436899fff6c7502bed859841b3de",
+      "policy_sha256": "9c96965f16083c15f4036fd643c9603682ffe1dc67231c3e21b731fd9338c0e6"
+    },
+    "arc_r75": {
+      "directory": "runs/robot_grounding/probes/arc_r75",
+      "observations_sha256": "1ec7897ea9b513a9e5a4f64d5e4d84f7c7411751bd8811ffd2c65b11e3d06b50",
+      "policy_sha256": "c59eed40ac719751a260dd01764a33ab530b4a3a28934c47deacab8a39e29f06"
+    },
+    "arc_r85": {
+      "directory": "runs/robot_grounding/probes/arc_r85",
+      "observations_sha256": "4c956ad19e3c83f94f54215ee7882fdd9436dc34fe1644849f2854c3402a4208",
+      "policy_sha256": "5dcfd1172700f7517c763a4debb44e14dd2918cd9c2096d766b480e1a96f9b76"
+    },
+    "heldout_arc_long": {
+      "directory": "runs/robot_grounding/probes/heldout_arc_long",
+      "observations_sha256": "94dfb9c8c230f1a66f53a5bdd363d33ce33640c39d28cb4616e85f2ced9f3d97",
+      "policy_sha256": "04b7e630f84874d23b4fbb89d921821da792f621fd1ae6c09afc98523013f902"
+    },
+    "heldout_arc_short": {
+      "directory": "runs/robot_grounding/probes/heldout_arc_short",
+      "observations_sha256": "6d1b8d2a1cf12a6a921b8a89c66f006ddaf4bafc07f4d03e1eeeabb96854ca1f",
+      "policy_sha256": "9548517cdd3482003246e318d660eae316746738230d416aae8517c54d030712"
+    }
+  },
+  "m0": "contact-calibrated grasp proxy and coarse reconstructed panel dimensions; initially free door",
+  "m1": {
+    "condition": "rotate before low-resistance pull",
+    "relative_action_interval_rad": [
+      0.1,
+      0.15
+    ],
+    "effective_sim_threshold_rad": 0.125
+  },
+  "m2": {
+    "effective_pull_radius_m": 0.7,
+    "selected_program_radius_m": 0.75,
+    "fitted_signals": [
+      "wrist force change",
+      "TCP end position"
+    ],
+    "heldout_force_change_mae_n": {
+      "robot_m1": 5.882348444110422,
+      "robot_m2": 1.711617036935948
+    }
+  },
+  "parameters_kept_as_priors": [
+    "door mass",
+    "handle stiffness",
+    "handle damping",
+    "contact friction",
+    "door damping"
+  ],
+  "source_world_XML_read_by_builder": false,
+  "final_transfer": "Recorded separately under runs/robot_grounding_final/transfer; never used to update this model"
+}

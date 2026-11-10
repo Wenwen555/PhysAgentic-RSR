@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_m2_physical_parameters_are_written(tmp_path):
     source = (
-        ROOT / "worlds/reconstructed"
+        ROOT / "worlds/legacy_object_space/reconstructed"
         / "reconstructed_door.mjcf"
     )
 

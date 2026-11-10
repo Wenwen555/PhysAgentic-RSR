@@ -1,0 +1,30 @@
+{
+  "latch_enabled": true,
+  "unlock_threshold": 0.125,
+  "model_type": "task_condition_contact_surrogate",
+  "door_radius_m": 0.8,
+  "handle_stiffness": 0.2,
+  "handle_damping": 0.05,
+  "handle_contact_friction": 1.0,
+  "door_damping": 0.1,
+  "door_friction": 0.05,
+  "door_mass_prior_kg": 6.0,
+  "contact_radius_m": 0.010704307116523051,
+  "grasp_tcp_m": [
+    0.5613177424348739,
+    0.4200595869955701,
+    0.9974832411918512
+  ],
+  "handle_pivot_prior_m": [
+    0.6012790236643106,
+    0.3500394097724962,
+    1.007496771246292
+  ],
+  "door_pivot_estimate_m": [
+    0.6137420722305775,
+    1.2200318891218542,
+    0.997409239536687
+  ],
+  "geometry_source": "coarse reconstruction + robot demonstration + public contact probe",
+  "hidden_world_structure_copied": false
+}

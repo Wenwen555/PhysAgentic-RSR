@@ -1,0 +1,24 @@
+role: development_sim
+scene: assets/reconstructed_sim/visual_stage3_v1/scene.xml
+provenance: assets/reconstructed_sim/visual_stage3_v1/provenance.json
+home_keyframe: stage2_initial
+robot_base: robot0_base
+tcp_site: tool_tip
+arm_joints: [robot0_joint1, robot0_joint2, robot0_joint3, robot0_joint4, robot0_joint5, robot0_joint6, robot0_joint7]
+arm_actuators: [robot0_torq_j1, robot0_torq_j2, robot0_torq_j3, robot0_torq_j4, robot0_torq_j5, robot0_torq_j6, robot0_torq_j7]
+finger_joints: [gripper0_finger_joint1, gripper0_finger_joint2]
+finger_actuators: [gripper0_gripper_finger_joint1, gripper0_gripper_finger_joint2]
+finger_bodies: [gripper0_leftfinger, gripper0_rightfinger]
+wrist_force_sensor: gripper0_force_ee
+wrist_torque_sensor: gripper0_torque_ee
+door_joint: LeverDoor_Leaf_joint
+handle_joint: LeverDoor_LeverHub_joint
+door_body: LeverDoor_Leaf
+handle_body: LeverDoor_LeverHub
+handle_geom: LeverDoor_LeverHub_collision
+object_joints: [LeverDoor_Leaf_joint, LeverDoor_LeverHub_joint, RoundDoor_Leaf_joint, RoundDoor_RoundKnob_joint]
+object_bodies: [LeverDoor_Leaf, LeverDoor_LeverHub, RoundDoor_Leaf, RoundDoor_RoundKnob]
+variants:
+  initial: null
+  m1: assets/reconstructed_sim/visual_stage3_v1/mechanisms/m1.mjcf
+  m2: assets/reconstructed_sim/visual_stage3_v1/mechanisms/m2.mjcf

@@ -1,0 +1,426 @@
+{
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/arenas/../textures/light-gray-floor-tile.png": {
+    "sha256": "a2aae4ba3b38c3ab9851eca9ad6e76cef9357ef75b3e9a4b280f694ca30acbc5",
+    "bundled": "resources/a2aae4ba3b38c3ab_light-gray-floor-tile.png"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/arenas/../textures/ceramic.png": {
+    "sha256": "beef464a2aa9143ba6a25a44adcbfd1f1aff16c5969edbf08019b61025388402",
+    "bundled": "resources/beef464a2aa9143b_ceramic.png"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/arenas/../textures/steel-brushed.png": {
+    "sha256": "43f30e7a2d0e8085aa15f58623b1753a003f93e5fe336eeaf65c146f955a81d5",
+    "bundled": "resources/43f30e7a2d0e8085_steel-brushed.png"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/arenas/../textures/light-gray-plaster.png": {
+    "sha256": "d0bdaf13b44ab6ef3122451f6b3853e40bdf20bb9be7662649683ba525dfe191",
+    "bundled": "resources/d0bdaf13b44ab6ef_light-gray-plaster.png"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link0.stl": {
+    "sha256": "dfc6d94330de8ddb005b311bfdba9f3b8e1aa7c256b71592ee7ff32cb9a9a5aa",
+    "bundled": "resources/dfc6d94330de8ddb_link0.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link1.stl": {
+    "sha256": "d24e332dffccf260b91d05dde17c5998bb9559d37da8608a8ee5213d9661f603",
+    "bundled": "resources/d24e332dffccf260_link1.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link2.stl": {
+    "sha256": "370f7605a0fae3529db169ded50f52f171024aa792d4d773bc84197301f6a039",
+    "bundled": "resources/370f7605a0fae352_link2.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link3.stl": {
+    "sha256": "0a8d638b9349c6c0eefc4e888636ac4838c4b27170f18a51699321118af709c1",
+    "bundled": "resources/0a8d638b9349c6c0_link3.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link4.stl": {
+    "sha256": "0180ebb5772ec9840cb049750cffb29a9ddc90311752a16ea34757782ef9e48d",
+    "bundled": "resources/0180ebb5772ec984_link4.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link5.stl": {
+    "sha256": "dd17e688c7870e722283525879643d53a74c0024d328b0e14b034b54c8b6c31a",
+    "bundled": "resources/dd17e688c7870e72_link5.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link6.stl": {
+    "sha256": "20b768e99a0e0440b5754dcca108016434e57937cc356acd9c352ccd3cb27f77",
+    "bundled": "resources/20b768e99a0e0440_link6.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/meshes/link7.stl": {
+    "sha256": "92ac6afcf7574c034d3170d8a68e95ac9048ab9d0dd5bbd8311b86e551b9ab1c",
+    "bundled": "resources/92ac6afcf7574c03_link7.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_0.obj": {
+    "sha256": "ff032aa0aa3514c0820f8c07a676892fe5a7a85977ed3e4818d8ee8080cd8a2c",
+    "bundled": "resources/ff032aa0aa3514c0_link0_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_1.obj": {
+    "sha256": "d033464e59f40a3096d2d6cf7853afb5bdb258bf19accefa24fa040ea73763e2",
+    "bundled": "resources/d033464e59f40a30_link0_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_2.obj": {
+    "sha256": "5f8782b8a222da3981d0c0108930fb8dadf44639a16bd85bc89cd7401ee5a766",
+    "bundled": "resources/5f8782b8a222da39_link0_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_3.obj": {
+    "sha256": "3fc91c0cd10c4aef9a493699fa83457c225d0854b28d55ccb0b47fe38f412f28",
+    "bundled": "resources/3fc91c0cd10c4aef_link0_vis_3.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_4.obj": {
+    "sha256": "f23819a788f7ce26965e540cef7a9bf5970ed99da3c1b875a91b0e544511e39d",
+    "bundled": "resources/f23819a788f7ce26_link0_vis_4.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_5.obj": {
+    "sha256": "e8e5ff98258aaca852979fd62a39d929c1d726d9e6fa19f1acc030553cdf2ed3",
+    "bundled": "resources/e8e5ff98258aaca8_link0_vis_5.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_6.obj": {
+    "sha256": "41be78cbdc6b0d401efe4fa630fe6924ee3312e294403aa35a4e18a70f99139e",
+    "bundled": "resources/41be78cbdc6b0d40_link0_vis_6.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_7.obj": {
+    "sha256": "75e3a2661f6366bb6c665282cd77f18b0da09ec1eaa8df29617fccf279970f6f",
+    "bundled": "resources/75e3a2661f6366bb_link0_vis_7.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_8.obj": {
+    "sha256": "d751e2ad68ca735b0c3b0f8f11f7364026fe64166ebf4aab69446d4465c6129d",
+    "bundled": "resources/d751e2ad68ca735b_link0_vis_8.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_9.obj": {
+    "sha256": "19817601101caeea79826ffe057ad0481b97f60e80870ee768fe32b6855ab9d2",
+    "bundled": "resources/19817601101caeea_link0_vis_9.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_10.obj": {
+    "sha256": "5d879fddef79581242c8d28bc4dea19759712f5d83820b9a7c8bf519035d52d3",
+    "bundled": "resources/5d879fddef795812_link0_vis_10.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link0_vis/link0_vis_11.obj": {
+    "sha256": "1f47131b0f4a638b64065fa9d7fa0f6d196c7aa56ba717ce9d127d36a67338a5",
+    "bundled": "resources/1f47131b0f4a638b_link0_vis_11.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link1_vis/link1_vis.obj": {
+    "sha256": "7e6cffc2656cac8c8faa9b43e41cba312b35519c9cc4c5bddd7159f14df50f2d",
+    "bundled": "resources/7e6cffc2656cac8c_link1_vis.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link2_vis/link2_vis.obj": {
+    "sha256": "42ada2805819bd9364e567e23b4c1b71b91d9ac02525598d823c14bf8d25dabd",
+    "bundled": "resources/42ada2805819bd93_link2_vis.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link3_vis/link3_vis_0.obj": {
+    "sha256": "6a1f18e21663f2acea23752dcb79b2a8e8ae96ab286dd9d90de1d61c0dd87c0b",
+    "bundled": "resources/6a1f18e21663f2ac_link3_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link3_vis/link3_vis_1.obj": {
+    "sha256": "73ad9e69c96283cc865424a64e38b53b7cd4385a0ff9834cae91a258ab92cb97",
+    "bundled": "resources/73ad9e69c96283cc_link3_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link3_vis/link3_vis_2.obj": {
+    "sha256": "9cd5a95e3599005bfc76e3700f1e3b3051efe07665b0ae6efbce75860a89e7f9",
+    "bundled": "resources/9cd5a95e3599005b_link3_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link3_vis/link3_vis_3.obj": {
+    "sha256": "01f69ca50a96cceb1bc1a0fcb4de9a7fe2b5b11d1d2e2a5c445723acef7eb483",
+    "bundled": "resources/01f69ca50a96cceb_link3_vis_3.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link4_vis/link4_vis_0.obj": {
+    "sha256": "76f42fd26edf4a6b78b055d3b48c4df59cebb93ffc36fc6e6e6c8d441dbec3c9",
+    "bundled": "resources/76f42fd26edf4a6b_link4_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link4_vis/link4_vis_1.obj": {
+    "sha256": "85907c1c058ea1133cd6cf5a23535a1b77257b4852c753e08cbf87f79c4003c2",
+    "bundled": "resources/85907c1c058ea113_link4_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link4_vis/link4_vis_2.obj": {
+    "sha256": "a019f7f862b782af509f649050ef45354ff73642742dea7525d8e1369a07fd94",
+    "bundled": "resources/a019f7f862b782af_link4_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link4_vis/link4_vis_3.obj": {
+    "sha256": "b0fcc4417a0680860ee11af60df227ecc328b4b1c66908b9872dedfa8620d992",
+    "bundled": "resources/b0fcc4417a068086_link4_vis_3.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link5_vis/link5_vis_0.obj": {
+    "sha256": "e30aa36ca950b2b57ba695423ee30da5da662b1a70b72d1533c5cd435b88355d",
+    "bundled": "resources/e30aa36ca950b2b5_link5_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link5_vis/link5_vis_1.obj": {
+    "sha256": "1d4089d9f2d26ef677ff42b27a2cb4ba9691a8fcd19ac665ac5203b23d22b876",
+    "bundled": "resources/1d4089d9f2d26ef6_link5_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link5_vis/link5_vis_2.obj": {
+    "sha256": "c095257424ff95526d2ebab4f396833a2d77227e0d2b3bb899a0019d19c38c49",
+    "bundled": "resources/c095257424ff9552_link5_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_0.obj": {
+    "sha256": "ca3ca6f238a0ed1138bfd5d11982f610d96dfc98d2d663646f07fc4c2a3ea7b0",
+    "bundled": "resources/ca3ca6f238a0ed11_link6_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_1.obj": {
+    "sha256": "a96dc760e3b8b0f6ab4e098248e4019e67ec9fcf404c6ab944e216dfc752e590",
+    "bundled": "resources/a96dc760e3b8b0f6_link6_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_2.obj": {
+    "sha256": "bef85a944a58e7032a765cbb10445ac44450fe047f3fefe501e3a3ac90dd6caf",
+    "bundled": "resources/bef85a944a58e703_link6_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_3.obj": {
+    "sha256": "a8f1f77b3978a16fcc8b4dd00af50431d1bca26576ef92f73d90d984dd188211",
+    "bundled": "resources/a8f1f77b3978a16f_link6_vis_3.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_4.obj": {
+    "sha256": "0cf60228d09854089185c5bf9f23004603b3aef874b61b2b8dad7bdcc29178e1",
+    "bundled": "resources/0cf60228d0985408_link6_vis_4.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_5.obj": {
+    "sha256": "dfdcbfb610c052e2a4830fbc26a53ec99c0658ec3664a179c5471ff42d6a60de",
+    "bundled": "resources/dfdcbfb610c052e2_link6_vis_5.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_6.obj": {
+    "sha256": "b13bafd7d8cee84a07e5a0667da8d1e1d9467112415332f23ef79c582421f8ce",
+    "bundled": "resources/b13bafd7d8cee84a_link6_vis_6.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_7.obj": {
+    "sha256": "52d8f9cac4326716f46fad9aa1314491d377b1b36a374258a97aae196b006e51",
+    "bundled": "resources/52d8f9cac4326716_link6_vis_7.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_8.obj": {
+    "sha256": "5e586f0aaa641cdae0d372bd2fb689600cf13fc629a52ba4ad6076bfa7b0834f",
+    "bundled": "resources/5e586f0aaa641cda_link6_vis_8.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_9.obj": {
+    "sha256": "3a3caf4c3596ff2661d559ee291a9ac7f66a6d943ebfcc417f229de72962d0dc",
+    "bundled": "resources/3a3caf4c3596ff26_link6_vis_9.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_10.obj": {
+    "sha256": "915c2eedef0d04869814126a96da1ff70d1fc89fc65ac80021084b00cad5d757",
+    "bundled": "resources/915c2eedef0d0486_link6_vis_10.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_11.obj": {
+    "sha256": "6edb35baa656d0b647541ab9de4706c4d471ec831e732955f9f4d347f4bc02fb",
+    "bundled": "resources/6edb35baa656d0b6_link6_vis_11.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_12.obj": {
+    "sha256": "5af3b6bdecc4de424eb0217627bf0f6185f126dbb0bc1a7fe39253f0a26f2907",
+    "bundled": "resources/5af3b6bdecc4de42_link6_vis_12.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_13.obj": {
+    "sha256": "21dfaf6cb5f27a8593be82cee6ca3023e3829d5f2be5e30af54b5955ea87a554",
+    "bundled": "resources/21dfaf6cb5f27a85_link6_vis_13.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_14.obj": {
+    "sha256": "8aa89ae8b85fb54400771754d25d6813dfb41299821bc984f37498ac0d9cba14",
+    "bundled": "resources/8aa89ae8b85fb544_link6_vis_14.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_15.obj": {
+    "sha256": "a9c3bcfb59c80b0e9f67c62775ea7564f1f11f55faf94b971c7fa2ee436e91bc",
+    "bundled": "resources/a9c3bcfb59c80b0e_link6_vis_15.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link6_vis/link6_vis_16.obj": {
+    "sha256": "0e76221e7c530dde22117afc57d95d48ddf30a5e586e3bd99ba6777a30b50e58",
+    "bundled": "resources/0e76221e7c530dde_link6_vis_16.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_0.obj": {
+    "sha256": "4a43571b6feb5dbb0b6f5b3d0a06f51f356371d27a10fc580c985107db16f2ac",
+    "bundled": "resources/4a43571b6feb5dbb_link7_vis_0.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_1.obj": {
+    "sha256": "0fefd18ce20e90dac5ce7d181e676e6cf7504cca1f050c4d05c098169b417116",
+    "bundled": "resources/0fefd18ce20e90da_link7_vis_1.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_2.obj": {
+    "sha256": "44ae15f4a83bd36f4de3cce78e3f592c8a070ca1fd4539be3b1c58e21d8d8671",
+    "bundled": "resources/44ae15f4a83bd36f_link7_vis_2.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_3.obj": {
+    "sha256": "08c6308530928ae7234edd1297039aff02b0d84d8bbfec8d01c5ab104fc4209b",
+    "bundled": "resources/08c6308530928ae7_link7_vis_3.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_4.obj": {
+    "sha256": "53e0bffb56a0fe9ebab0f43dc997512287ab14d8f9b2d77f1baf7f0c96367f59",
+    "bundled": "resources/53e0bffb56a0fe9e_link7_vis_4.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_5.obj": {
+    "sha256": "1fd161fb00e729732950770f20fb6e75c5a5ca1620bceac9d550c54f322d469d",
+    "bundled": "resources/1fd161fb00e72973_link7_vis_5.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_6.obj": {
+    "sha256": "cd4f2b39adfd4857f922f3104fdd4cef01390265a5f2582c73d97f39dbc1755b",
+    "bundled": "resources/cd4f2b39adfd4857_link7_vis_6.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/robots/panda/obj_meshes/link7_vis/link7_vis_7.obj": {
+    "sha256": "f4f9e3c8532df4d1588e1c2ff82fae10facfb30a52329b7f595ee37d7bad6229",
+    "bundled": "resources/f4f9e3c8532df4d1_link7_vis_7.obj"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/grippers/meshes/panda_gripper/hand.stl": {
+    "sha256": "94493e94f30fe940f2c8ca2f155c3bbe67bbff406d3edf5e261670d2f0f6e2ed",
+    "bundled": "resources/94493e94f30fe940_hand.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/grippers/meshes/panda_gripper/hand_vis.stl": {
+    "sha256": "fdeb1a924b8d0f1f997f47d6d8af102c7290a1d5144145efdc39501dc13f0fa1",
+    "bundled": "resources/fdeb1a924b8d0f1f_hand_vis.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/grippers/meshes/panda_gripper/finger.stl": {
+    "sha256": "2d07a740392f3b9b0816f65d64fff9927d3d57c897870fc4b6ff9c56fff3a0c8",
+    "bundled": "resources/2d07a740392f3b9b_finger.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/grippers/meshes/panda_gripper/finger_vis.stl": {
+    "sha256": "e49613148a74f1ba9b5793813078e5becf15833e0296073dc1c523508be35ae4",
+    "bundled": "resources/e49613148a74f1ba_finger_vis.stl"
+  },
+  "/home/wen/experiment/PhyAgent-RSR-v1/src/cap-x/capx/third_party/robosuite/robosuite/models/assets/grippers/meshes/panda_gripper/finger_longer.stl": {
+    "sha256": "8857e33ee59c3a395c3036a11e4f1731c88c203c821bb03ca97737a2d04cba27",
+    "bundled": "resources/8857e33ee59c3a39_finger_longer.stl"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_frame_0.obj": {
+    "sha256": "edf7aa5881110d794b5164f9dc1708bb7c3dcd5e34ac9a71c0be66ed2ec98590",
+    "bundled": "resources/edf7aa5881110d79_lever_frame_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_0.obj": {
+    "sha256": "d9938d69f0b431c4b519f16cb82f5618e3a86ee36b41b17e5dca3e7c9995f3af",
+    "bundled": "resources/d9938d69f0b431c4_lever_panel_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_0_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_lever_panel_0_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_1.obj": {
+    "sha256": "f504c7e464d56b5c35ad6423407fea0489bf2ba97080bc9340a660754abaf1ff",
+    "bundled": "resources/f504c7e464d56b5c_lever_panel_1.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_2.obj": {
+    "sha256": "1caeee07d3320357a28cbc64b2aad0fec655d267da70477052e0f3151eefbd24",
+    "bundled": "resources/1caeee07d3320357_lever_panel_2.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_2_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_lever_panel_2_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_3.obj": {
+    "sha256": "e9ef1eff1559d40ecc3f503f514a84be78c99ac8e720f80b7864b4c0def86a10",
+    "bundled": "resources/e9ef1eff1559d40e_lever_panel_3.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_4.obj": {
+    "sha256": "3d479be1db76262f430d3edc3c9eba6bcbc383a146548cf0b35b9b606154aeb2",
+    "bundled": "resources/3d479be1db76262f_lever_panel_4.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_4_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_lever_panel_4_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_5.obj": {
+    "sha256": "d3ba80f0feb84c8457d399f735b7c6a54f2cfd4ebcce2664abfbba1d5bf2b531",
+    "bundled": "resources/d3ba80f0feb84c84_lever_panel_5.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_6.obj": {
+    "sha256": "5e067fc3325f986a74e9760dc9eddedc277194ad614c871bdcb5490e2d18a24e",
+    "bundled": "resources/5e067fc3325f986a_lever_panel_6.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_6_tex.png": {
+    "sha256": "cf9b9d761789d674caaecf73fcd8df61bba0a5bf02e4944f11bb57812a9599ad",
+    "bundled": "resources/cf9b9d761789d674_lever_panel_6_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_7.obj": {
+    "sha256": "6496780f85d14f5f50ef739f9fc84bf9185641435e3e44a0cee83eaee35fa741",
+    "bundled": "resources/6496780f85d14f5f_lever_panel_7.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_8.obj": {
+    "sha256": "f64d6c02280a773937984ed7379c4152ef344bf9206b7bb0c8d29783522881b1",
+    "bundled": "resources/f64d6c02280a7739_lever_panel_8.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_panel_8_tex.png": {
+    "sha256": "cf9b9d761789d674caaecf73fcd8df61bba0a5bf02e4944f11bb57812a9599ad",
+    "bundled": "resources/cf9b9d761789d674_lever_panel_8_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_handle_0.obj": {
+    "sha256": "f8d4c2f2f07c740d73afdb35325c89876f113436d0026f18676d67664206c344",
+    "bundled": "resources/f8d4c2f2f07c740d_lever_handle_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_handle_0_tex.png": {
+    "sha256": "51ef7351347d86f76012b2d9dcb721ab6a74043a3c94ca82ea954ba7adc5c7bd",
+    "bundled": "resources/51ef7351347d86f7_lever_handle_0_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_handle_1.obj": {
+    "sha256": "c7296340444cb6ae803c491d4d3902c0e91275e52690e30b11ab4864342c5e26",
+    "bundled": "resources/c7296340444cb6ae_lever_handle_1.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_handle_2.obj": {
+    "sha256": "d6929af65837b10dc334fc08d71f8f45fb77c460c050b95c951bc1cacf515506",
+    "bundled": "resources/d6929af65837b10d_lever_handle_2.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/lever_handle_2_tex.png": {
+    "sha256": "51ef7351347d86f76012b2d9dcb721ab6a74043a3c94ca82ea954ba7adc5c7bd",
+    "bundled": "resources/51ef7351347d86f7_lever_handle_2_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_frame_0.obj": {
+    "sha256": "a12a3490a9b55c330200be2a8f4bd8ec1e9f8aa4fca9143ca31092843c3741be",
+    "bundled": "resources/a12a3490a9b55c33_round_frame_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_0.obj": {
+    "sha256": "36d867533907245ab212ffb56fac4f19afea5bb62d757c7a40a019ec25005b8f",
+    "bundled": "resources/36d867533907245a_round_panel_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_0_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_round_panel_0_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_1.obj": {
+    "sha256": "7f6ecdcf5d830b456ad3ccebcf6f4f39e9f7e2dc623fea1402851a9e3f17c5ce",
+    "bundled": "resources/7f6ecdcf5d830b45_round_panel_1.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_2.obj": {
+    "sha256": "e05f4e552b7c25098eddfe31767b67bf0a3197b4c8b9ff95a9078eebb2b8b86e",
+    "bundled": "resources/e05f4e552b7c2509_round_panel_2.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_2_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_round_panel_2_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_3.obj": {
+    "sha256": "a1ca481707d35a1713e04a055e6c77a973b04944fb114e447310307f215a4d49",
+    "bundled": "resources/a1ca481707d35a17_round_panel_3.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_4.obj": {
+    "sha256": "20f4abe0878a96c9d6ee1516bc05926870fa21258e61d55d0f868bdff94a5431",
+    "bundled": "resources/20f4abe0878a96c9_round_panel_4.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_4_tex.png": {
+    "sha256": "11956d5dc37f5e3475e14feb8844dbf3eb6366c007d4599c96197aa106c5fd52",
+    "bundled": "resources/11956d5dc37f5e34_round_panel_4_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_5.obj": {
+    "sha256": "1e37fad976515a7664fff52a80472fc332f6b0142dbb9afbbec0f9308738bf08",
+    "bundled": "resources/1e37fad976515a76_round_panel_5.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_6.obj": {
+    "sha256": "62ce77bcd62f6df2b735ae41ff8bf2bb4a7947e8827bf64505a9123077364d96",
+    "bundled": "resources/62ce77bcd62f6df2_round_panel_6.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_6_tex.png": {
+    "sha256": "cf9b9d761789d674caaecf73fcd8df61bba0a5bf02e4944f11bb57812a9599ad",
+    "bundled": "resources/cf9b9d761789d674_round_panel_6_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_7.obj": {
+    "sha256": "547961b4a23c0bec8a95d27c66e85667d2f5956f07a1c6c5de47790618e33742",
+    "bundled": "resources/547961b4a23c0bec_round_panel_7.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_8.obj": {
+    "sha256": "635d6973a7dbe0a2624606155fcc5ee2ce45ea495e657b6c27d3b0811337899e",
+    "bundled": "resources/635d6973a7dbe0a2_round_panel_8.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_panel_8_tex.png": {
+    "sha256": "cf9b9d761789d674caaecf73fcd8df61bba0a5bf02e4944f11bb57812a9599ad",
+    "bundled": "resources/cf9b9d761789d674_round_panel_8_tex.png"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_handle_0.obj": {
+    "sha256": "839dd37866cb702d4b8ef52ef43cd5b7c46b142ea6b33eeeac7b151c33bbf439",
+    "bundled": "resources/839dd37866cb702d_round_handle_0.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_handle_1.obj": {
+    "sha256": "1c05543f9e64328dc78ad9e531a4191eb9e4bb038c715fa9d234f1832a3f4713",
+    "bundled": "resources/1c05543f9e64328d_round_handle_1.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_handle_2.obj": {
+    "sha256": "7445e88f21d5375ac288ef759e443ff0c4c92fa0d7eae7cff3647021bda1beb9",
+    "bundled": "resources/7445e88f21d5375a_round_handle_2.obj"
+  },
+  "/home/wen/Documents/Codex/2026-11-07/phyagent-rsr-1-2-3-world-3/outputs/unidoor_two_assets/meshes/round_handle_3.obj": {
+    "sha256": "c96e0f0cf1d54318cb021929f9773d5c95f187a66290dfe2b83701b338e9ff45",
+    "bundled": "resources/c96e0f0cf1d54318_round_handle_3.obj"
+  }
+}

@@ -1,5 +1,10 @@
 # Active SysID — Task-Driven Active Physical System Identification
 
+> **当前主线：Robot-Space M0-R → M1-R → M2-R → Sim 开发 CaP → 冻结 World 评测。**
+> 新读者先看 [仓库目录与角色](docs/REPO_LAYOUT.md)、[M0–M2 实施记录](docs/ROBOT_SPACE_M0_M2_IMPLEMENTATION.md)、[CaP 复用说明](docs/CAP_PIPELINE_REUSE.md)。
+> 下文早期 Object-Space 设计保留作历史研究背景，不能当成当前 Robot-Space 执行入口。
+
+
 > 让 Agent 根据下游 Code-as-Policy (CaP) 的执行需求, 主动设计能够区分物理
 > 机制、辨识关键参数的交互实验 (Probe), 并利用机器人本体感受更新可交互
 > 仿真, 使仿真能够预测真实任务中的动作结果。
@@ -39,11 +44,12 @@ active_sysid/
 │   ├── mechanisms.yaml      # 机构库 (3.2 Mechanism Library)
 │   ├── pipeline.yaml        # 评分权重 λ / 停止条件 / 特征阈值
 │   └── eval_truth.yaml      # World 真值 (仅评测, Planner 禁读)
-├── worlds/                  # reconstructed/ (初始重建) + oracle/ (评测真值)
+├── worlds/                  # 仅 legacy_object_space/，当前主线模型在 assets/
 ├── scripts/run_probe_loop.py
 ├── tests/                   # mock 双门 World + 冒烟测试
 ├── docs/                    # 研究方案与实验设计
 └── runs/                    # 实验产物 (gitignore)
+# 实际主线请看 docs/REPO_LAYOUT.md
 ```
 
 ## 快速开始
@@ -56,7 +62,7 @@ pip install -e ".[dev,opt,sim]"     # 至少 pip install -e . (numpy + pyyaml)
 python scripts/run_probe_loop.py --backend mock
 
 # MuJoCo 后端 (object-space 直驱; channel_map 见 configs/mujoco_world.example.yaml)
-python scripts/run_probe_loop.py --backend mujoco --mjcf worlds/reconstructed/x.mjcf
+python scripts/run_probe_loop.py --backend mujoco --mjcf worlds/legacy_object_space/reconstructed/x.mjcf
 
 # 测试
 python -m pytest tests/ -q
@@ -65,7 +71,7 @@ python -m pytest tests/ -q
 ## 与 ../agentic_rsr 的关系
 
 上游 `../agentic_rsr` 负责视觉重建与场景导出 (Real2Sim 三阶段)。本包
-消费其 stage3 导出的 MJCF (放入 `worlds/reconstructed/`), 专注其后的
+消费其 stage3 导出的 MJCF (放入 `worlds/legacy_object_space/reconstructed/`), 专注其后的
 **主动物理辨识闭环**:
 
 ```
@@ -98,3 +104,19 @@ python -m pytest tests/ -q
 - [ ] CaP sim/World rollout (cap/evaluator.py)
 - [ ] IG_struct 的 p(o|a,H) 似然评估 + IG_param 的 Fisher 信息
 - [ ] LLM 驱动的假设生成 (Full Agentic RSR)
+
+## M3-R robot execution
+
+The original double-door World **now has a separate robot binding and physically validated R0/R1 fixed manipulation baseline**. The earlier Panda single-door fixture and M0–M2 object-space experiments remain separate. See [robot execution layout](docs/robot_execution_layout.md) for commands, causal ablations, videos and measured gates.
+
+### New-session Robot-Space CaP development
+
+The R1 execution layer is frozen. To write CaP without changing it, start with [Robot-Space CaP handoff](docs/ROBOT_SPACE_CAP_HANDOFF.md) and run `python -m active_sysid.robot.stages check`.
+
+## Sim2Sim 边界修正（当前入口）
+
+三个 Robot-Space Stage 已改为仅在独立重建 Sim 运行。World 只接受受限 Probe 或冻结策略终评；原 World R1 是 Oracle 执行器诊断。详见 [Sim/World 边界](docs/SIM_WORLD_BOUNDARY.md)。新冻结清单为 `configs/robot/frozen_sim2sim.json`。
+
+### 当前 Robot-Space M0–M2
+
+已增加最小复现入口 `scripts/run_robot_grounding.py`，主开发模型为 `robot_m2`。阶段状态和证据统一维护在 [Robot-Space M0–M2 实施记录](docs/ROBOT_SPACE_M0_M2_IMPLEMENTATION.md)。目标是任务条件与可迁移交互，不是恢复隐藏门锁。

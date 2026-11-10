@@ -1,5 +1,0 @@
-# R0/R1 reference runtime; installed in an independent .venv-robot.
-mujoco==3.3.7
-numpy>=1.24,<3
-imageio==2.38.1
-imageio-ffmpeg==0.8.1

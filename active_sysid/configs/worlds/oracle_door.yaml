@@ -2,7 +2,7 @@
 # latch 段不同, channel_map / 杠杆臂 / 增益完全一致 —— 同一 ProbeSpec 在两
 # 场景动作语义相同。锁定状态是隐藏机构, 不进入 channel_map。
 backend: mujoco
-mjcf: worlds/oracle/oracle_door.mjcf
+mjcf: worlds/legacy_object_space/oracle/oracle_door.mjcf
 channel_map:
   handle_angle: handle_hinge
   door_angle: door_hinge

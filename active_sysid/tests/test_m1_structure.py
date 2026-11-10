@@ -91,7 +91,7 @@ def test_model_editor_inserts_executable_constraint(
     tmp_path,
 ):
     source = (
-        ROOT / "worlds/reconstructed"
+        ROOT / "worlds/legacy_object_space/reconstructed"
         / "reconstructed_door.mjcf"
     )
 

@@ -1,0 +1,48 @@
+role: development_sim
+scene: assets/reconstructed_sim/task_grounded_v1/robot_m0.xml
+provenance: assets/reconstructed_sim/task_grounded_v1/robot_m0.json
+home_keyframe: stage2_initial
+robot_base: robot0_base
+tcp_site: tool_tip
+arm_joints:
+- robot0_joint1
+- robot0_joint2
+- robot0_joint3
+- robot0_joint4
+- robot0_joint5
+- robot0_joint6
+- robot0_joint7
+arm_actuators:
+- robot0_torq_j1
+- robot0_torq_j2
+- robot0_torq_j3
+- robot0_torq_j4
+- robot0_torq_j5
+- robot0_torq_j6
+- robot0_torq_j7
+finger_joints:
+- gripper0_finger_joint1
+- gripper0_finger_joint2
+finger_actuators:
+- gripper0_gripper_finger_joint1
+- gripper0_gripper_finger_joint2
+finger_bodies:
+- gripper0_leftfinger
+- gripper0_rightfinger
+wrist_force_sensor: gripper0_force_ee
+wrist_torque_sensor: gripper0_torque_ee
+door_joint: task_door_hinge
+handle_joint: task_handle_hinge
+door_body: task_door
+handle_body: task_handle
+handle_geom: task_handle_contact
+object_joints:
+- task_door_hinge
+- task_handle_hinge
+object_bodies:
+- task_door
+- task_handle
+variants:
+  robot_m0: assets/reconstructed_sim/task_grounded_v1/robot_m0.xml
+  robot_m1: assets/reconstructed_sim/task_grounded_v1/robot_m1.xml
+  robot_m2: assets/reconstructed_sim/task_grounded_v1/robot_m2.xml
