@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "not_started",
+  "stage": null,
+  "model": "gpt-6-astra",
+  "policy_path": null,
+  "policy_sha256": null,
+  "development": {"revision": null, "summary_path": null, "success_rate": null, "episodes": null},
+  "acceptance": {"summary_path": null, "success_rate": null, "episodes": null},
+  "world_evaluation": {"performed": false, "result_path": null},
+  "next_stage_ready": false,
+  "notes": []
+}

@@ -17,7 +17,11 @@ PROTECTED=tuple(f'src/active_sysid/robot/{n}.py' for n in MODULES)+(
     'configs/robot/simulators/legacy_visual_stage3.yaml','configs/robot/simulators/robot_grounding_m0_m2.yaml','configs/robot/world_bindings/unidoor_native.yaml',
     'configs/robot/cap_protocol.yaml','configs/robot/stages/privileged_exact.yaml','configs/robot/stages/visual_exact.yaml',
     'configs/robot/stages/visual_randomized.yaml','scripts/build_reconstructed_robot_sim.py',
-    'scripts/run_robot_grounding.py','src/active_sysid/grounding/__init__.py','src/active_sysid/grounding/task_interaction.py',
+    'scripts/run_robot_grounding.py','scripts/prepare_cap_context.py',
+    'scripts/launch_cap_agent.py','cap_development/pipeline.yaml',
+    'cap_development/prompts/shared.md','cap_development/prompts/privileged_exact.md',
+    'cap_development/prompts/visual_exact.md','cap_development/prompts/visual_randomized.md',
+    'cap_development/schemas/stage_output.json','src/active_sysid/grounding/__init__.py','src/active_sysid/grounding/task_interaction.py',
     'pyproject.toml','uv.lock')
 
 
