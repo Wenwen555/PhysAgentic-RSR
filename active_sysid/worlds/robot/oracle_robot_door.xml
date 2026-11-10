@@ -1,0 +1,39 @@
+<mujoco model="oracle_robot_door">
+  <include file="panda_robot.xml"/>
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" integrator="implicitfast" cone="elliptic" iterations="100" tolerance="1e-9"/>
+  <visual>
+    <global offwidth="960" offheight="720"/>
+    <headlight diffuse="0.7 0.7 0.7" ambient="0.35 0.35 0.35" specular="0.1 0.1 0.1"/>
+  </visual>
+  <asset>
+    <texture name="ground" type="2d" builtin="checker" rgb1="0.28 0.32 0.36" rgb2="0.22 0.26 0.30" width="256" height="256"/>
+    <material name="groundmat" texture="ground" texrepeat="4 4" texuniform="true" reflectance="0.1"/>
+  </asset>
+  <worldbody>
+    <light pos="0.5 0.8 3" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <camera name="overview" pos="2.5 3.0 2.3" xyaxes="-0.80 0.60 0 -0.25 -0.33 0.91" fovy="48"/>
+    <camera name="contact" pos="1.40 1.30 1.55" xyaxes="-0.82 0.57 0 -0.23 -0.33 0.91" fovy="42"/>
+    <geom name="floor" type="plane" size="3 3 0.1" material="groundmat"/>
+    <geom name="pedestal" type="box" pos="1.0 0.8 0.15" size="0.16 0.16 0.15" rgba="0.17 0.20 0.24 1"/>
+    <body name="frame">
+      <geom name="post" type="box" size="0.05 0.05 1.0" pos="-0.06 0 1.0" rgba="0.19 0.23 0.28 1"/>
+      <body name="door">
+        <joint name="door_hinge" type="hinge" axis="0 0 1" range="0 1.508" damping="0.4" frictionloss="0.1"/>
+        <geom name="door_leaf" type="box" size="0.4 0.02 1.0" pos="0.4 0 1.05" density="187.5" rgba="0.26 0.48 0.62 1"/>
+        <!-- A normal-axis lever in front of the panel. The old object scene is unchanged. -->
+        <geom name="handle_mount" type="cylinder" size="0.027 0.035" pos="0.70 0.055 1.0" quat="0.70710678 0.70710678 0 0" mass="0" rgba="0.45 0.48 0.52 1"/>
+        <body name="handle" pos="0.70 0.105 1.0">
+          <!-- Counterbalanced lever: COM on its axis preserves the old zero gravity torque. -->
+          <inertial pos="0 0 0" mass="0.12" diaginertia="0.00004 0.00018 0.00018"/>
+          <joint name="handle_hinge" type="hinge" axis="0 -1 0" range="-1.2 1.2" damping="0.08" stiffness="0.5" springref="0" armature="0.01"/>
+          <geom name="handle_bar" type="capsule" fromto="0 0 0 -0.15 0 0" size="0.014" contype="1" conaffinity="1" condim="4" friction="1.0 0.005 0.0001" solref="0.008 1" solimp="0.95 0.99 0.001" rgba="0.88 0.66 0.23 1"/>
+          <site name="handle_grasp" pos="-0.10 0 0" size="0.004" rgba="1 0.4 0 0"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <equality>
+    <weld name="latch_weld" body1="door" body2="frame" active="true" solref="0.01 1" solimp="0.98 0.999 0.001"/>
+  </equality>
+</mujoco>
