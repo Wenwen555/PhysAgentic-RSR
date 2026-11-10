@@ -26,6 +26,12 @@ validator:
     min_heldout: 1
 
 cma_es:
-  loss_weights: {w_q: 1.0, w_F: 1.0, w_e: 1.0, lambda_reg: 0.001}
-  sigma0: 0.3
-  max_iter: 120
+  loss_weights:
+    w_q: 1.0
+    w_F: 0.0
+    w_e: 0.0
+    lambda_reg: 0.0001
+
+  sigma0: 0.22
+  max_iter: 40
+  seed: 7

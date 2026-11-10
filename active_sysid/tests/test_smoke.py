@@ -95,7 +95,7 @@ def test_components_require_config_sections():
     with pytest.raises(ValueError, match="cma_es"):
         CMASysID()
     with pytest.raises(ValueError, match="cma_es.loss_weights"):
-        CMASysID({"loss_weights": {"w_q": 1.0}, "sigma0": 0.3, "max_iter": 10})
+        CMASysID({"loss_weights": {"w_q": 1.0}, "sigma0": 0.3, "max_iter": 10, "seed": 7,})
     with pytest.raises(ValueError, match="probe_loop"):
         ProbeLoop(planner=None, library=None, executor=None,
                   mechanism_identifier=None, parameter_identifier=None,
@@ -107,7 +107,6 @@ def test_model_editor_writes_repair_sidecar(tmp_path):
         ROOT / "worlds/reconstructed"
         / "reconstructed_door.mjcf"
     )
-    src.write_text("<mujoco/>", encoding="utf-8")
     out = ModelEditor().apply(
         src,
         model=HypothesisSet.initial_door_hypotheses().get("H3_hidden_latch"),

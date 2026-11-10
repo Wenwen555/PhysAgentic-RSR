@@ -1,35 +1,122 @@
-"""CaP (Code-as-Policy) 评测: sim 内验证 -> World 迁移执行。
 
-主实验 (Hidden Mechanism Recovery for CaP Transfer) 的最终指标:
-在更新后的 sim 中验证成功的 CaP, 迁移至 World 的实际任务成功率。
-最有价值的展示是完整因果链:
-
-    无闩锁模型 -> 拉门失败 -> Agent 提出机构假设 -> 选择把手实验
-    -> 检测解锁条件 -> 修复仿真 -> CaP 自动改变动作顺序 -> World 成功
-"""
+"""评估现有 CaP 的 Sim / World 执行结果，不负责 LLM 生成。"""
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+import json
+from pathlib import Path
+from typing import Any, Callable
+
+from active_sysid.backends import create_backend
+from active_sysid.cap.runtime import (
+    DoorRuntime,
+    StepBudgetExceeded,
+)
+from active_sysid.types import TaskSpec
 
 
-class Policy(Protocol):
-    """CaP 策略接口: 一段可在 sim/World 中执行的程序。"""
+Policy = Callable[[DoorRuntime], None]
 
-    def code(self) -> str: ...
+
+def scene_spec(
+    base_spec: dict[str, Any],
+    mjcf: str | Path,
+) -> dict[str, Any]:
+    """加载 M1/M2 MJCF 及对应的闩锁运行时配置。"""
+    path = Path(mjcf)
+
+    spec = {
+        **base_spec,
+        "mjcf": str(path),
+    }
+    spec.pop("latch", None)
+
+    sidecar = path.with_suffix(
+        path.suffix + ".repair.json"
+    )
+
+    if sidecar.exists():
+        repair = json.loads(
+            sidecar.read_text(encoding="utf-8")
+        )
+
+        if "latch" in repair:
+            spec["latch"] = repair["latch"]
+
+    return spec
 
 
 class CaPEvaluator:
-    def run_in_sim(self, policy: Policy, sim_path: str,
-                   n_rollouts: int = 10) -> dict[str, Any]:
-        """在修复后的仿真中多次执行 policy, 返回成功率与失败模式。
+    def evaluate(
+        self,
+        policy: Policy,
+        backend_spec: dict[str, Any],
+        task: TaskSpec,
+        *,
+        n_rollouts: int = 1,
+    ) -> dict[str, Any]:
 
-        TODO: 接入 MuJoCo rollout (复用 ../agentic_rsr 的 stage3 agent_runner
-        思路), 统计成功率、平均完成时间、失败阶段 (抓取/旋把/拉门/通过)。
-        """
-        return {"success_rate": None, "n_rollouts": n_rollouts,
-                "status": "not_implemented"}
+        criteria = task.success_criteria
+        goal = float(criteria["door_angle_min"])
+        results = []
 
-    def run_in_world(self, policy: Policy, world) -> dict[str, Any]:
-        """在 World (真机或 oracle 仿真) 中执行并评测迁移成功率。"""
-        return {"success_rate": None, "status": "not_implemented"}
+        for _ in range(n_rollouts):
+            runtime = DoorRuntime(
+                create_backend(backend_spec),
+                max_steps=int(
+                    criteria["max_steps"]
+                ),
+                max_pull_force_n=float(
+                    criteria["max_pull_force_n"]
+                ),
+            )
+
+            exhausted = False
+
+            try:
+                policy(runtime)
+            except StepBudgetExceeded:
+                exhausted = True
+
+            final = runtime.observe()
+
+            success = (
+                not exhausted
+                and final["door_angle"] >= goal
+            )
+
+            results.append({
+                "success": bool(success),
+                "budget_exceeded": exhausted,
+                "elapsed_s": final["time_s"],
+                "action_calls": runtime.calls,
+                "final_observation": final,
+                "trace": runtime.trace,
+            })
+
+        return {
+            "task_id": task.task_id,
+            "n_rollouts": n_rollouts,
+            "success_rate": (
+                sum(r["success"] for r in results)
+                / n_rollouts
+            ),
+            "rollouts": results,
+        }
+
+    def run_in_sim(
+        self,
+        policy: Policy,
+        sim_spec: dict[str, Any],
+        task: TaskSpec,
+    ) -> dict:
+        return self.evaluate(policy, sim_spec, task)
+
+    def run_in_world(
+        self,
+        policy: Policy,
+        world_spec: dict[str, Any],
+        task: TaskSpec,
+    ) -> dict:
+        return self.evaluate(policy, world_spec, task)
+

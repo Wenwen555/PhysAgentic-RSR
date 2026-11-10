@@ -82,29 +82,65 @@ class MuJoCoBackEnd(BaseWorld):
     def _reset(self) -> None:
         self._mj.mj_resetData(self.model, self.data)
         self._last_tau = {}
+    
+    
+    def command_torques(
+        self,
+        commands: dict[str, tuple[str, float]],
+    ) -> dict[str, float]:
+        """共享动作接口：position=rad，force=N，输出 N·m。"""
+        out = {}
 
-    def _actuation(self, probe, t: float) -> dict[str, float]:
+        for target, (mode, value) in commands.items():
+            channel = TARGET_CHANNEL.get(target, target)
+            joint = self._joints[channel]
+
+            if mode == "free":
+                tau = 0.0
+
+            elif mode == "force":
+                tau = float(value) * self.lever_arm
+
+            elif mode == "position":
+                gains = self.gains.get(
+                    target, DEFAULT_GAINS["door"]
+                )
+                q = float(
+                    self.data.qpos[joint["qadr"]]
+                )
+                qd = float(
+                    self.data.qvel[joint["vadr"]]
+                )
+
+                tau = float(np.clip(
+                    gains["kp"] * (float(value) - q)
+                    - gains["kd"] * qd,
+                    -gains["cap"],
+                    gains["cap"],
+                ))
+
+            else:
+                raise ValueError(
+                    f"unsupported control mode: {mode}"
+                )
+
+            out[channel] = tau
+
+        return out
+
+    def _actuation(
+        self,
+        probe,
+        t: float,
+    ) -> dict[str, float]:
         if self._profile_key != probe.key():
             self._profile = build_profile(probe)
             self._profile_key = probe.key()
-        out: dict[str, float] = {}
-        for target, (mode, value) in self._profile(t).items():
-            channel = TARGET_CHANNEL.get(target, target)
-            joint = self._joints.get(channel)
-            if joint is None:
-                raise KeyError(f"channel_map 缺少 {channel!r}, 无法驱动 {target!r}")
-            if mode == "free":
-                out[channel] = 0.0
-            elif mode == "force":
-                # 把手处拉力 (N) -> 铰链扭矩 (N·m)
-                out[channel] = float(value) * self.lever_arm
-            else:  # position: PD 控制
-                g = self.gains.get(target, DEFAULT_GAINS["door"])
-                q = float(self.data.qpos[joint["qadr"]])
-                qd = float(self.data.qvel[joint["vadr"]])
-                tau = g["kp"] * (float(value) - q) - g["kd"] * qd
-                out[channel] = float(np.clip(tau, -g["cap"], g["cap"]))
-        return out
+
+        return self.command_torques(
+            self._profile(t)
+        )
+
 
     def _apply(self, torques: dict[str, float]) -> None:
         self.data.qfrc_applied[:] = 0.0
